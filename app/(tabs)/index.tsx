@@ -190,7 +190,8 @@ export default function RecipesHomeScreen() {
 
   const handleToggleRecipe = async (recipe: any) => {
     if (isRecipeInMenu(recipe.id)) {
-      await removeMenuItem(recipe.id);
+      const menuItem = menuItems.find((item: any) => item.recipe_id === recipe.id);
+if (menuItem) await removeMenuItem(menuItem.id);
     } else {
       await addMenuItem({ recipe_id: recipe.id, title: recipe.title, servings: portions, totalPrice: recipe.totalPrice || 0 });
     }
