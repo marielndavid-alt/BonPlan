@@ -1,0 +1,17 @@
+# Expo
+expo-env.d.ts
+.expo/
+
+# Dependencies
+node_modules/
+
+# iOS
+/ios
+ios/Pods
+ios/Pods 2
+
+# Android
+/android
+
+# Environment
+.env
