@@ -189,13 +189,15 @@ export default function RecipesHomeScreen() {
   };
 
   const handleToggleRecipe = async (recipe: any) => {
-    if (isRecipeInMenu(recipe.id)) {
-      const menuItem = menuItems.find((item: any) => item.recipe_id === recipe.id);
-if (menuItem) await removeMenuItem(menuItem.id);
-    } else {
-      await addMenuItem({ recipe_id: recipe.id, title: recipe.title, servings: portions, totalPrice: recipe.totalPrice || 0 });
-    }
-  };
+  if (isRecipeInMenu(recipe.id)) {
+    console.log('menuItems:', JSON.stringify(menuItems));
+    const menuItem = menuItems.find((item: any) => item.recipe_id === recipe.id);
+    console.log('menuItem trouvé:', JSON.stringify(menuItem));
+    if (menuItem) await removeMenuItem(menuItem.id);
+  } else {
+    await addMenuItem({ recipe_id: recipe.id, title: recipe.title, servings: portions, totalPrice: recipe.totalPrice || 0 });
+  }
+};
 
   const renderRecipeCard = (recipe: any) => {
     const pricePerServing = recipe.servings && recipe.servings > 0 ? recipe.totalPrice / recipe.servings : recipe.totalPrice;
