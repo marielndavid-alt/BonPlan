@@ -9,11 +9,14 @@ interface RecipeCostDetailModalProps {
   recipeId: string | null;
   recipeName: string;
   onClose: () => void;
+  currentServings?: number;
+  baseServings?: number;
 }
 
 const STORES = ['metro', 'iga', 'superc', 'maxi', 'walmart'];
 
-export function RecipeCostDetailModal({ visible, recipeId, recipeName, onClose }: RecipeCostDetailModalProps) {
+export function RecipeCostDetailModal({ visible, recipeId, recipeName, onClose, currentServings = 4, baseServings = 4 }: RecipeCostDetailModalProps) {
+  const servingsRatio = baseServings > 0 ? currentServings / baseServings : 1;
   const [storePrices, setStorePrices] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -119,7 +122,7 @@ export function RecipeCostDetailModal({ visible, recipeId, recipeName, onClose }
               data={STORES}
               keyExtractor={item => item}
               contentContainerStyle={styles.content}
-              ListHeaderComponent={<Text style={styles.sectionTitle}>Prix par épicerie</Text>}
+              ListHeaderComponent={<Text style={styles.sectionTitle}>Prix pour {currentServings} portion{currentServings > 1 ? 's' : ''}</Text>}
               renderItem={({ item: storeCode }) => {
                 const sp = storePrices.find((s: any) => s.stores?.code === storeCode);
                 const info = storeInfo[storeCode];
@@ -140,7 +143,7 @@ export function RecipeCostDetailModal({ visible, recipeId, recipeName, onClose }
                     )}
                     <Text style={[styles.storePrice, !isAvailable && styles.storePriceNA]}>
                       {isAvailable && sp
-                        ? `${sp.adjusted_total.toFixed(2)}$`
+                        ? `${(sp.adjusted_total * servingsRatio).toFixed(2)}$`
                         : 'Non disponible'}
                     </Text>
                   </View>

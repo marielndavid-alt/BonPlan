@@ -1,7 +1,3 @@
-import {
-  Modal, View, Text, StyleSheet, Pressable, ActivityIndicator,
-  ScrollView, Linking, Platform, Alert,
-} from 'react-native';
 import React, { useState, useEffect } from 'react';
 import {
   Modal, View, Text, StyleSheet, Pressable, ActivityIndicator,
@@ -104,16 +100,7 @@ export default function RecipesHomeScreen() {
       <Pressable style={[styles.tab, activeTab === 'all' && styles.tabActive]} onPress={() => setActiveTab('all')}>
         <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>Toutes les recettes</Text>
       </Pressable>
-      {activeTab === 'all' && (
-        <Pressable style={styles.filterIconButton} onPress={() => setShowFilters(true)}>
-          <MaterialIcons name="tune" size={22} color="#fff" />
-          {activeFiltersCount > 0 && (
-            <View style={styles.filterIconBadge}>
-              <Text style={styles.filterIconBadgeText}>{activeFiltersCount}</Text>
-            </View>
-          )}
-        </Pressable>
-      )}
+
     </View>
   );
 
@@ -193,14 +180,13 @@ export default function RecipesHomeScreen() {
   };
 
   const handleToggleRecipe = async (recipe: any) => {
-  Alert.alert('TEST', 'Bouton cliqué! inMenu: ' + isRecipeInMenu(recipe.id));
-  if (isRecipeInMenu(recipe.id)) {
-    const menuItem = menuItems.find((item: any) => item.recipe_id === recipe.id);
-    if (menuItem) await removeMenuItem(menuItem.id);
-  } else {
-    await addMenuItem({ recipe_id: recipe.id, title: recipe.title, servings: portions, totalPrice: recipe.totalPrice || 0 });
-  }
-};
+    if (isRecipeInMenu(recipe.id)) {
+      const menuItem = menuItems.find((item) => item.recipe_id === recipe.id);
+      if (menuItem) await removeMenuItem(menuItem.id);
+    } else {
+      await addMenuItem({ recipe_id: recipe.id, title: recipe.title, servings: portions, totalPrice: recipe.totalPrice || 0 });
+    }
+  };
 
   const renderRecipeCard = (recipe: any) => {
     const pricePerServing = recipe.servings && recipe.servings > 0 ? recipe.totalPrice / recipe.servings : recipe.totalPrice;
@@ -219,7 +205,7 @@ export default function RecipesHomeScreen() {
             </View>
           )}
           <View style={styles.priceBadgeOverlay}>
-            <Text style={styles.priceBadgeText}>{pricePerServing?.toFixed(2) || '0.00'}$/portion</Text>
+            {pricePerServing > 0 && <Text style={styles.priceBadgeText}>{pricePerServing.toFixed(2)}$/portion</Text>}
           </View>
         </View>
         <View style={styles.recipeInfo}>
@@ -257,7 +243,19 @@ export default function RecipesHomeScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}>
+          <View style={styles.greetingRow}>
           <Text style={styles.greeting}>Bonjour {user?.username || ''},</Text>
+          {activeTab === 'all' && (
+            <Pressable style={styles.filterIconButton} onPress={() => setShowFilters(true)}>
+              <MaterialIcons name="tune" size={22} color="#fff" />
+              {activeFiltersCount > 0 && (
+                <View style={styles.filterIconBadge}>
+                  <Text style={styles.filterIconBadgeText}>{activeFiltersCount}</Text>
+                </View>
+              )}
+            </Pressable>
+          )}
+        </View>
           <Text style={styles.subtitle}>Abonnez-vous pour accéder aux recettes et faire de grosses économies!</Text>
         </View>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.lockedContent} showsVerticalScrollIndicator={false}>
@@ -302,7 +300,19 @@ export default function RecipesHomeScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}>
-        <Text style={styles.greeting}>Bonjour {user?.username || ''},</Text>
+        <View style={styles.greetingRow}>
+          <Text style={styles.greeting}>Bonjour {user?.username || ''},</Text>
+          {activeTab === 'all' && (
+            <Pressable style={styles.filterIconButton} onPress={() => setShowFilters(true)}>
+              <MaterialIcons name="tune" size={22} color="#fff" />
+              {activeFiltersCount > 0 && (
+                <View style={styles.filterIconBadge}>
+                  <Text style={styles.filterIconBadgeText}>{activeFiltersCount}</Text>
+                </View>
+              )}
+            </Pressable>
+          )}
+        </View>
         <Text style={styles.subtitle}>
           {user?.username ? `Voici les recettes les plus économiques cette semaine` : `Voici ce qu'il y a au menu cette semaine.`}
         </Text>
@@ -311,22 +321,28 @@ export default function RecipesHomeScreen() {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.recipeList} showsVerticalScrollIndicator={false}>
-        {(activeTab === 'deals' || filterMealType === 'all' || filterMealType === 'main') && (
+        {activeTab === 'deals' ? (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Plats Principaux</Text>
+              <Text style={styles.sectionSubtitle}>{mainRecipes.length} plat{mainRecipes.length > 1 ? 's' : ''} principal{mainRecipes.length > 1 ? 'x' : ''}</Text>
+              {loadingMain ? <View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.primary} /></View>
+                : mainRecipes.length === 0 ? <View style={styles.emptyList}><Text style={styles.emptyListText}>Aucune recette trouvée</Text></View>
+                : mainRecipes.map(recipe => renderRecipeCard(recipe))}
+            </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Collations</Text>
+              <Text style={styles.sectionSubtitle}>{snackRecipes.length} collation{snackRecipes.length > 1 ? 's' : ''}</Text>
+              {loadingSnacks ? <View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.primary} /></View>
+                : snackRecipes.length === 0 ? <View style={styles.emptyList}><Text style={styles.emptyListText}>Aucune recette trouvée</Text></View>
+                : snackRecipes.map(recipe => renderRecipeCard(recipe))}
+            </View>
+          </>
+        ) : (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Plats Principaux</Text>
-            <Text style={styles.sectionSubtitle}>{mainRecipes.length} plat{mainRecipes.length > 1 ? 's' : ''} principal{mainRecipes.length > 1 ? 'x' : ''}</Text>
-            {loadingMain ? <View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.primary} /></View>
-              : mainRecipes.length === 0 ? <View style={styles.emptyList}><Text style={styles.emptyListText}>Aucune recette trouvée</Text></View>
-              : mainRecipes.map(recipe => renderRecipeCard(recipe))}
-          </View>
-        )}
-        {(activeTab === 'deals' || filterMealType === 'all' || filterMealType === 'snack') && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Collations</Text>
-            <Text style={styles.sectionSubtitle}>{snackRecipes.length} collation{snackRecipes.length > 1 ? 's' : ''}</Text>
-            {loadingSnacks ? <View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.primary} /></View>
-              : snackRecipes.length === 0 ? <View style={styles.emptyList}><Text style={styles.emptyListText}>Aucune recette trouvée</Text></View>
-              : snackRecipes.map(recipe => renderRecipeCard(recipe))}
+            {(loadingMain || loadingSnacks) ? <View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.primary} /></View>
+              : [...mainRecipes, ...snackRecipes].length === 0 ? <View style={styles.emptyList}><Text style={styles.emptyListText}>Aucune recette trouvée</Text></View>
+              : [...mainRecipes, ...snackRecipes].sort((a, b) => (b.likes || 0) - (a.likes || 0)).map(recipe => renderRecipeCard(recipe))}
           </View>
         )}
       </ScrollView>
@@ -339,10 +355,11 @@ export default function RecipesHomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   hero: { backgroundColor: colors.darkBeige, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg, borderBottomLeftRadius: borderRadius.xl, borderBottomRightRadius: borderRadius.xl },
-  greeting: { ...typography.h1, color: colors.text, marginBottom: spacing.xs },
+  greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
+  greeting: { ...typography.h1, color: colors.text },
   subtitle: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.sm },
   tabBar: { flexDirection: 'row', paddingTop: spacing.xs, gap: spacing.sm, alignItems: 'center' },
-  tab: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: borderRadius.full, backgroundColor: 'transparent', alignItems: 'center', borderWidth: 2, borderColor: colors.primary },
+  tab: { flex: 1, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: borderRadius.full, backgroundColor: 'transparent', alignItems: 'center', borderWidth: 2, borderColor: colors.primary },
   tabActive: { backgroundColor: colors.primary },
   tabText: { ...typography.bodyBold, fontSize: 15, color: colors.primary },
   tabTextActive: { color: '#fff' },

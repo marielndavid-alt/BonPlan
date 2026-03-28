@@ -46,7 +46,7 @@ export default function RootScreen() {
     return (
       <View style={styles.container}>
         <Image
-          source={require('../assets/images/loading-screen.gif')}
+          source={require('../assets/images/Icon accueil-rouge.gif')}
           style={styles.image}
           resizeMode="cover"
         />

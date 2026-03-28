@@ -52,27 +52,37 @@ export default function RecipeDetailScreen() {
       setRecipe(data);
 
       if (data.recipe_ingredients) {
+        const productIds = data.recipe_ingredients.map((ri: any) => ri.product_id);
+        const [{ data: allPrices }] = await Promise.all([
+          supabase
+            .from('prices')
+            .select('product_id, regular_price, sale_price, is_on_sale, stores(code, name)')
+            .in('product_id', productIds)
+            .order('regular_price', { ascending: true }),
+          loadBestPrice(data.id, data.servings),
+        ]);
+        const priceMap = new Map();
+        for (const p of (allPrices || [])) {
+          if (!priceMap.has(p.product_id)) {
+            const price = p.is_on_sale && p.sale_price ? Number(p.sale_price) : Number(p.regular_price);
+            priceMap.set(p.product_id, { price, storeCode: (p.stores as any).code, storeName: (p.stores as any).name });
+          }
+        }
         const sectionMap = new Map<string, any[]>();
-        const ingredientsWithPrices = await Promise.all(
-          data.recipe_ingredients.map(async (ri: any) => {
-            const bestPrice = await getBestPriceForIngredient(ri.product_id);
-            return {
-              product_id: ri.product_id,
-              product_name: ri.products.name,
-              quantity: ri.quantity,
-              unit: ri.unit,
-              section: ri.section || 'Ingrédients',
-              bestPrice,
-            };
-          })
-        );
-        ingredientsWithPrices.forEach((ing: any) => {
-          if (!sectionMap.has(ing.section)) sectionMap.set(ing.section, []);
-          sectionMap.get(ing.section)!.push(ing);
+        data.recipe_ingredients.forEach((ri: any) => {
+          const section = ri.section || 'Ingrédients';
+          if (!sectionMap.has(section)) sectionMap.set(section, []);
+          sectionMap.get(section)!.push({
+            product_id: ri.product_id,
+            product_name: ri.products.name,
+            quantity: ri.quantity,
+            unit: ri.unit,
+            section,
+            bestPrice: priceMap.get(ri.product_id),
+          });
         });
         setIngredientSections(Array.from(sectionMap.entries()).map(([name, ingredients]) => ({ name, ingredients })));
       }
-      await loadBestPrice(data.id, data.servings);
     } catch (error) {
       console.error('Error loading recipe:', error);
     } finally {
@@ -100,16 +110,21 @@ export default function RecipeDetailScreen() {
       const supabase = getSupabaseClient();
 
       const { data: { user } } = await supabase.auth.getUser();
-      const { data: pantry } = await supabase
-        .from('pantry_items')
-        .select('name')
-        .eq('user_id', user?.id);
-      const pantryNames = (pantry || []).map((p: any) => p.name.toLowerCase());
 
-      const { data: recipeIngs } = await supabase
-        .from('recipe_ingredients')
-        .select('id, products(name)')
-        .eq('recipe_id', recipeId);
+      // Toutes les requêtes en parallèle
+      const [
+        { data: pantry },
+        { data: recipeIngs },
+        { data: ingPrices },
+        { data: storeTotals },
+      ] = await Promise.all([
+        supabase.from('pantry_items').select('name').eq('user_id', user?.id),
+        supabase.from('recipe_ingredients').select('id, products(name)').eq('recipe_id', recipeId),
+        supabase.from('recipe_ingredient_prices').select('recipe_ingredient_id, store_id, cost').eq('recipe_id', recipeId),
+        supabase.from('recipe_store_prices').select('total_price, ingredients_covered, ingredients_total, store_id, stores(code)').eq('recipe_id', recipeId).order('total_price', { ascending: true }),
+      ]);
+
+      const pantryNames = (pantry || []).map((p: any) => p.name.toLowerCase());
 
       const pantryIngredientIds = new Set(
         (recipeIngs || [])
@@ -120,16 +135,7 @@ export default function RecipeDetailScreen() {
           .map((ri: any) => ri.id)
       );
 
-      const { data: ingPrices } = await supabase
-        .from('recipe_ingredient_prices')
-        .select('recipe_ingredient_id, store_id, cost')
-        .eq('recipe_id', recipeId);
 
-      const { data: storeTotals } = await supabase
-        .from('recipe_store_prices')
-        .select('total_price, ingredients_covered, ingredients_total, store_id, stores(code)')
-        .eq('recipe_id', recipeId)
-        .order('total_price', { ascending: true });
 
       let best: { total: number; storeCode: string } | null = null;
 
@@ -369,7 +375,7 @@ console.log('[loadBestPrice] store:', (sp.stores as any)?.code, 'covered:', sp.i
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      <RecipeCostDetailModal
+      <RecipeCostDetailModal currentServings={currentServings} baseServings={recipe.servings}
         visible={showPriceModal}
         recipeId={recipe.id}
         recipeName={recipe.title}
