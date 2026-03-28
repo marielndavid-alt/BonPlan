@@ -189,8 +189,11 @@ export default function RecipesHomeScreen() {
   };
 
   const handleToggleRecipe = async (recipe: any) => {
+  console.log('=== handleToggleRecipe appelé ===', recipe.id);
+  console.log('isRecipeInMenu:', isRecipeInMenu(recipe.id));
+  console.log('menuItems:', JSON.stringify(menuItems));
+  
   if (isRecipeInMenu(recipe.id)) {
-    console.log('menuItems:', JSON.stringify(menuItems));
     const menuItem = menuItems.find((item: any) => item.recipe_id === recipe.id);
     console.log('menuItem trouvé:', JSON.stringify(menuItem));
     if (menuItem) await removeMenuItem(menuItem.id);
