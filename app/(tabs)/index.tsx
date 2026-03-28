@@ -1,3 +1,7 @@
+import {
+  Modal, View, Text, StyleSheet, Pressable, ActivityIndicator,
+  ScrollView, Linking, Platform, Alert,
+} from 'react-native';
 import React, { useState, useEffect } from 'react';
 import {
   Modal, View, Text, StyleSheet, Pressable, ActivityIndicator,
@@ -189,13 +193,9 @@ export default function RecipesHomeScreen() {
   };
 
   const handleToggleRecipe = async (recipe: any) => {
-  console.log('=== handleToggleRecipe appelé ===', recipe.id);
-  console.log('isRecipeInMenu:', isRecipeInMenu(recipe.id));
-  console.log('menuItems:', JSON.stringify(menuItems));
-  
+  Alert.alert('TEST', 'Bouton cliqué! inMenu: ' + isRecipeInMenu(recipe.id));
   if (isRecipeInMenu(recipe.id)) {
     const menuItem = menuItems.find((item: any) => item.recipe_id === recipe.id);
-    console.log('menuItem trouvé:', JSON.stringify(menuItem));
     if (menuItem) await removeMenuItem(menuItem.id);
   } else {
     await addMenuItem({ recipe_id: recipe.id, title: recipe.title, servings: portions, totalPrice: recipe.totalPrice || 0 });
