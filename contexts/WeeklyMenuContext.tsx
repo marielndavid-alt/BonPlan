@@ -47,19 +47,22 @@ export function WeeklyMenuProvider({ children }: { children: React.ReactNode }) 
   const totalCost = menuItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
 
   const updateDay = async (id: string, day: string) => {
-  const { error } = await supabase
-    .from('weekly_menus')
-    .update({ day })
-    .eq('id', id);
-  if (!error) {
-    setMenuItems(prev => prev.map(item => 
-      item.id === id ? { ...item, day } : item
-    ));
-  }
-};
+    const { error } = await supabase.from('weekly_menus').update({ day }).eq('id', id);
+    if (!error) setMenuItems(prev => prev.map(item => item.id === id ? { ...item, day } : item));
+  };
+
+  const updateServings = async (id: string, servings: number) => {
+    const { error } = await supabase.from('weekly_menus').update({ servings }).eq('id', id);
+    if (!error) setMenuItems(prev => prev.map(item => item.id === id ? { ...item, servings } : item));
+  };
+
+  const updateStore = async (id: string, store_code: string) => {
+    const { error } = await supabase.from('weekly_menus').update({ store_code }).eq('id', id);
+    if (!error) setMenuItems(prev => prev.map(item => item.id === id ? { ...item, store_code } : item));
+  };
 
   return (
-<WeeklyMenuContext.Provider value={{ menuItems, loading, addMenuItem, removeMenuItem, clearMenu, refreshMenu: loadMenu, totalCost, updateDay }}>
+<WeeklyMenuContext.Provider value={{ menuItems, loading, addMenuItem, removeMenuItem, clearMenu, refreshMenu: loadMenu, totalCost, updateDay, updateServings, updateStore }}>
   {children}
 </WeeklyMenuContext.Provider>
   );

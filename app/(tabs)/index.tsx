@@ -13,8 +13,6 @@ import { storePreferencesService } from '@/services/storePreferencesService';
 import { useAuth, getSupabaseClient } from '@/template';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useWeeklyMenu } from '@/hooks/useWeeklyMenu';
-import { createCheckoutSession } from '@/services/subscriptionService';
-import { SUBSCRIPTION_TIERS } from '@/constants/subscription';
 import { useAlert } from '@/template';
 
 export default function RecipesHomeScreen() {
@@ -184,7 +182,7 @@ export default function RecipesHomeScreen() {
       const menuItem = menuItems.find((item) => item.recipe_id === recipe.id);
       if (menuItem) await removeMenuItem(menuItem.id);
     } else {
-      await addMenuItem({ recipe_id: recipe.id, title: recipe.title, servings: portions, totalPrice: recipe.totalPrice || 0 });
+      await addMenuItem({ recipe_id: recipe.id, title: recipe.title, servings: recipe.servings || 4, totalPrice: recipe.totalPrice || 0 });
     }
   };
 
@@ -225,17 +223,7 @@ export default function RecipesHomeScreen() {
     );
   };
 
-  const handleSubscription = async (planType: 'monthly' | 'yearly') => {
-    setSubscriptionLoading(true);
-    const priceId = SUBSCRIPTION_TIERS[planType].price_id;
-    const { url, error } = await createCheckoutSession(priceId);
-    if (error || !url) { showAlert('Erreur', error || 'Impossible de créer la session de paiement'); setSubscriptionLoading(false); return; }
-    try {
-      if (await Linking.canOpenURL(url)) await Linking.openURL(url);
-      else showAlert('Erreur', "Impossible d'ouvrir le lien de paiement");
-    } catch { showAlert('Erreur', "Une erreur est survenue"); }
-    setSubscriptionLoading(false);
-  };
+  const handleSubscription = () => router.push('/subscription');
 
   const hasAccess = isSubscribed || isTrial;
 

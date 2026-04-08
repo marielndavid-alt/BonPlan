@@ -14,32 +14,38 @@ export default function RootScreen() {
 
   useEffect(() => {
     let isMounted = true;
-    
+
+    // Timeout de sécurité - max 5 secondes peu importe ce qui se passe
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted) setChecking(false);
+    }, 5000);
+
     const checkOnboarding = async () => {
       if (authLoading) return;
 
-      // Capturer le code de parrainage depuis le deep link
       const url = await Linking.getInitialURL();
       if (url) {
         const match = url.match(/ref=([A-Z0-9]+)/);
-        if (match) {
-          await AsyncStorage.setItem('pending_referral_code', match[1]);
-        }
+        if (match) await AsyncStorage.setItem('pending_referral_code', match[1]);
       }
-      
+
       if (user) {
+        // Onboarding seulement pour les nouveaux comptes (créés dans les 5 dernières minutes)
+        const createdAt = new Date(user.created_at || 0);
+        const isNewAccount = (Date.now() - createdAt.getTime()) < 5 * 60 * 1000;
         const isComplete = await onboardingService.isOnboardingComplete(user.id);
         if (!isMounted) return;
-        if (!isComplete) setShouldShowOnboarding(true);
+        if (!isComplete && isNewAccount) setShouldShowOnboarding(true);
       }
-      
+
       if (isMounted) {
+        clearTimeout(safetyTimeout);
         setTimeout(() => setChecking(false), 2500);
       }
     };
-    
+
     checkOnboarding();
-    return () => { isMounted = false; };
+    return () => { isMounted = false; clearTimeout(safetyTimeout); };
   }, [user, authLoading]);
 
   if (checking || authLoading) {

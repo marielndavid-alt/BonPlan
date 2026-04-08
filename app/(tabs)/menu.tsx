@@ -16,24 +16,25 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows, storeInfo } from '@/constants/theme';
 import { useWeeklyMenu } from '@/hooks/useWeeklyMenu';
+import { supabase } from '@/lib/supabase';
 import { DayOfWeek, weeklyMenuService } from '@/services/weeklyMenuService';
 import { optimizedRecipeService } from '@/services/optimizedRecipeService';
 import { Recipe } from '@/types';
 import { useSubscription } from '@/hooks/useSubscription';
-import { createCheckoutSession } from '@/services/subscriptionService';
-import { SUBSCRIPTION_TIERS } from '@/constants/subscription';
 import { useAlert } from '@/template';
 
 export default function WeeklyMenuScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { menuItems, totalCost, removeMenuItem, clearMenu, updateDay, loading } = useWeeklyMenu();
+  const { menuItems, removeMenuItem, clearMenu, updateDay, updateServings, updateStore, loading } = useWeeklyMenu();
   const { isSubscribed, isTrial } = useSubscription();
   const { showAlert } = useAlert();
   const [fullRecipes, setFullRecipes] = useState<Recipe[]>([]);
   const [loadingRecipes, setLoadingRecipes] = useState(false);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [showDayPicker, setShowDayPicker] = useState(false);
+  const [storePrices, setStorePrices] = useState<Record<string, Record<string, number>>>({});
+  const [globalStore, setGlobalStore] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   const daysOfWeek: DayOfWeek[] = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -51,38 +52,34 @@ export default function WeeklyMenuScreen() {
         optimizedRecipeService.getRecipeById(item.recipe_id)
       );
       const recipes = await Promise.all(recipePromises);
-      setFullRecipes(recipes.filter(Boolean) as Recipe[]);
+      const filteredRecipes = recipes.filter(Boolean) as Recipe[];
+      setFullRecipes(filteredRecipes);
+
+      // Charger les prix par épicerie pour chaque recette
+      const recipeIds = menuItems.map(item => item.recipe_id);
+      if (recipeIds.length > 0) {
+        const { data: prices } = await supabase
+          .from('recipe_store_prices')
+          .select('recipe_id, total_price, ingredients_covered, ingredients_total, stores(code)')
+          .in('recipe_id', recipeIds);
+
+        const priceMap: Record<string, Record<string, number>> = {};
+        (prices || []).forEach((p: any) => {
+          if (p.total_price > 0) {
+            if (!priceMap[p.recipe_id]) priceMap[p.recipe_id] = {};
+            priceMap[p.recipe_id][p.stores.code] = p.total_price;
+          }
+        });
+        setStorePrices(priceMap);
+      }
+
       setLoadingRecipes(false);
     }
 
     loadMenuRecipes();
   }, [menuItems]);
 
-  const handleSubscription = async (planType: 'monthly' | 'yearly') => {
-    setSubscriptionLoading(true);
-    
-    const priceId = SUBSCRIPTION_TIERS[planType].price_id;
-    const { url, error } = await createCheckoutSession(priceId);
-    
-    if (error || !url) {
-      showAlert('Erreur', error || 'Impossible de créer la session de paiement');
-      setSubscriptionLoading(false);
-      return;
-    }
-    
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        showAlert('Erreur', 'Impossible d\'ouvrir le lien de paiement');
-      }
-    } catch (err) {
-      showAlert('Erreur', 'Une erreur est survenue lors de l\'ouverture du paiement');
-    }
-    
-    setSubscriptionLoading(false);
-  };
+  const handleSubscription = () => router.push('/subscription');
 
   const handleClearMenu = () => {
     showAlert(
@@ -236,6 +233,23 @@ export default function WeeklyMenuScreen() {
             </Pressable>
           )}
         </View>
+
+        {menuItems.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+            {['metro', 'iga', 'superc', 'maxi', 'walmart'].map(store => {
+              const selected = globalStore === store;
+              return (
+                <Pressable key={store} onPress={() => {
+                  const newStore = selected ? null : store;
+                  setGlobalStore(newStore);
+                  if (newStore) menuItems.forEach(item => updateStore(item.id, newStore));
+                }} style={[styles.heroStoreChip, selected && styles.heroStoreChipActive]}>
+                  <Text style={[styles.heroStoreChipText, selected && styles.heroStoreChipTextActive]}>{store.toUpperCase()}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
@@ -256,10 +270,22 @@ export default function WeeklyMenuScreen() {
         ) : (
           <>
             {/* Total Cost Banner */}
-            <View style={styles.costBanner}>
-              <Text style={styles.costLabel}>Coût total estimé cette semaine</Text>
-              <Text style={styles.costAmount}>{(totalCost || 0).toFixed(2)}$</Text>
-            </View>
+            {(() => {
+              const total = menuItems.reduce((sum, menuItem) => {
+                const recipe = fullRecipes.find(r => r.id === menuItem.recipe_id);
+                if (!recipe || !recipe.totalPrice) return sum;
+                const ratio = recipe.servings > 0 ? (menuItem.servings || recipe.servings) / recipe.servings : 1;
+                const selectedStore = menuItem.store_code || recipe.bestStore;
+                const basePrice = storePrices[recipe.id]?.[selectedStore] ?? recipe.totalPrice;
+                return sum + (basePrice * ratio);
+              }, 0);
+              return (
+                <View style={styles.costBanner}>
+                  <Text style={styles.costLabel}>Coût total estimé cette semaine</Text>
+                  <Text style={styles.costAmount}>{total.toFixed(2)}$</Text>
+                </View>
+              );
+            })()}
 
             {/* Recipe Cards - Groupés par catégorie */}
             {(() => {
@@ -338,20 +364,40 @@ export default function WeeklyMenuScreen() {
                                   <MaterialIcons name="schedule" size={16} color={colors.textSecondary} />
                                   <Text style={styles.metaText}>{recipe.prepTime} min</Text>
                                 </View>
-                                <View style={styles.metaItem}>
-                                  <MaterialIcons name="restaurant" size={16} color={colors.textSecondary} />
-                                  <Text style={styles.metaText}>{recipe.servings} portions</Text>
-                                </View>
+
                               </View>
                               
-                              {/* Price Badge */}
-                              <View style={styles.priceBadge}>
-                                <View style={styles.priceRow}>
-                                  <View style={[styles.storeDot, { backgroundColor: storeInfo[recipe.bestStore]?.color || colors.primary }]} />
-                                  <Text style={styles.storeText}>{storeInfo[recipe.bestStore]?.name || 'N/A'}</Text>
-                                </View>
-                                <Text style={styles.priceText}>{recipe.totalPrice.toFixed(2)}$</Text>
+                              {/* Portions selector */}
+                              <View style={styles.portionsRow}>
+                                <Text style={styles.portionsLabel}>Portions :</Text>
+                                <Pressable onPress={(e) => { e.stopPropagation(); const s = Math.max(1, (menuItem?.servings || recipe.servings) - 1); updateServings(menuItem!.id, s); }} style={styles.portionBtn}>
+                                  <Text style={styles.portionBtnText}>-</Text>
+                                </Pressable>
+                                <Text style={styles.portionsCount}>{menuItem?.servings || recipe.servings}</Text>
+                                <Pressable onPress={(e) => { e.stopPropagation(); const s = (menuItem?.servings || recipe.servings) + 1; updateServings(menuItem!.id, s); }} style={styles.portionBtn}>
+                                  <Text style={styles.portionBtnText}>+</Text>
+                                </Pressable>
                               </View>
+
+
+
+                              {/* Price Badge */}
+                              {(() => {
+                                const selectedStore = menuItems.find(m => m.id === menuItem?.id)?.store_code || recipe.bestStore;
+                                const ratio = recipe.servings > 0 ? (menuItem?.servings || recipe.servings) / recipe.servings : 1;
+                                const basePrice = storePrices[recipe.id]?.[selectedStore] ?? recipe.totalPrice;
+                                console.log('[menu] store:', selectedStore, 'storePrices:', JSON.stringify(storePrices[recipe.id]), 'basePrice:', basePrice);
+                                const price = basePrice * ratio;
+                                return (
+                                  <View style={styles.priceBadge}>
+                                    <View style={styles.priceRow}>
+                                      <View style={[styles.storeDot, { backgroundColor: storeInfo[selectedStore]?.color || colors.primary }]} />
+                                      <Text style={styles.storeText}>{storeInfo[selectedStore]?.name || selectedStore}</Text>
+                                    </View>
+                                    <Text style={styles.priceText}>{price > 0 ? price.toFixed(2) + '$' : 'N/A'}</Text>
+                                  </View>
+                                );
+                              })()}
                             </View>
                           </Pressable>
                         );})}
@@ -429,20 +475,40 @@ export default function WeeklyMenuScreen() {
                                   <MaterialIcons name="schedule" size={16} color={colors.textSecondary} />
                                   <Text style={styles.metaText}>{recipe.prepTime} min</Text>
                                 </View>
-                                <View style={styles.metaItem}>
-                                  <MaterialIcons name="restaurant" size={16} color={colors.textSecondary} />
-                                  <Text style={styles.metaText}>{recipe.servings} portions</Text>
-                                </View>
+
                               </View>
                               
-                              {/* Price Badge */}
-                              <View style={styles.priceBadge}>
-                                <View style={styles.priceRow}>
-                                  <View style={[styles.storeDot, { backgroundColor: storeInfo[recipe.bestStore]?.color || colors.primary }]} />
-                                  <Text style={styles.storeText}>{storeInfo[recipe.bestStore]?.name || 'N/A'}</Text>
-                                </View>
-                                <Text style={styles.priceText}>{recipe.totalPrice.toFixed(2)}$</Text>
+                              {/* Portions selector */}
+                              <View style={styles.portionsRow}>
+                                <Text style={styles.portionsLabel}>Portions :</Text>
+                                <Pressable onPress={(e) => { e.stopPropagation(); const s = Math.max(1, (menuItem?.servings || recipe.servings) - 1); updateServings(menuItem!.id, s); }} style={styles.portionBtn}>
+                                  <Text style={styles.portionBtnText}>-</Text>
+                                </Pressable>
+                                <Text style={styles.portionsCount}>{menuItem?.servings || recipe.servings}</Text>
+                                <Pressable onPress={(e) => { e.stopPropagation(); const s = (menuItem?.servings || recipe.servings) + 1; updateServings(menuItem!.id, s); }} style={styles.portionBtn}>
+                                  <Text style={styles.portionBtnText}>+</Text>
+                                </Pressable>
                               </View>
+
+
+
+                              {/* Price Badge */}
+                              {(() => {
+                                const selectedStore = menuItems.find(m => m.id === menuItem?.id)?.store_code || recipe.bestStore;
+                                const ratio = recipe.servings > 0 ? (menuItem?.servings || recipe.servings) / recipe.servings : 1;
+                                const basePrice = storePrices[recipe.id]?.[selectedStore] ?? recipe.totalPrice;
+                                console.log('[menu] store:', selectedStore, 'storePrices:', JSON.stringify(storePrices[recipe.id]), 'basePrice:', basePrice);
+                                const price = basePrice * ratio;
+                                return (
+                                  <View style={styles.priceBadge}>
+                                    <View style={styles.priceRow}>
+                                      <View style={[styles.storeDot, { backgroundColor: storeInfo[selectedStore]?.color || colors.primary }]} />
+                                      <Text style={styles.storeText}>{storeInfo[selectedStore]?.name || selectedStore}</Text>
+                                    </View>
+                                    <Text style={styles.priceText}>{price > 0 ? price.toFixed(2) + '$' : 'N/A'}</Text>
+                                  </View>
+                                );
+                              })()}
                             </View>
                           </Pressable>
                         );})}
@@ -867,6 +933,19 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.md,
   },
+  portionsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  portionsLabel: { fontSize: 14, color: colors.textSecondary },
+  portionBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.beige, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  portionBtnText: { fontSize: 18, color: colors.text, fontWeight: '300' },
+  portionsCount: { fontSize: 16, fontWeight: '600', color: colors.text, minWidth: 24, textAlign: 'center' },
+  storeChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: colors.beige, borderWidth: 1, borderColor: colors.border },
+  storeChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  storeChipText: { fontSize: 11, fontWeight: '600', color: colors.text },
+  storeChipTextActive: { color: colors.surface },
+  heroStoreChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: '#fff' },
+  heroStoreChipActive: { backgroundColor: '#ff3131', borderColor: '#ff3131' },
+  heroStoreChipText: { fontSize: 12, fontWeight: '700', color: colors.primary },
+  heroStoreChipTextActive: { color: '#fff' },
   freeAccessText: {
     flex: 1,
     fontSize: 13,

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/template';
+import { revenueCatService } from '@/services/revenueCatService';
 
 interface SubscriptionContextType {
   isSubscribed: boolean;
@@ -8,7 +9,9 @@ interface SubscriptionContextType {
   isAdmin: boolean;
   loading: boolean;
   status: string | null;
+  subscriptionStatus: any;
   refetch: () => void;
+  refreshSubscription: () => void;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType>({
@@ -17,7 +20,9 @@ const SubscriptionContext = createContext<SubscriptionContextType>({
   isAdmin: false,
   loading: true,
   status: null,
+  subscriptionStatus: null,
   refetch: () => {},
+  refreshSubscription: () => {},
 });
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
@@ -28,43 +33,69 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     isAdmin: false,
     loading: true,
     status: null as string | null,
+    subscriptionStatus: null as any,
   });
 
   const fetchSubscription = async () => {
     if (!user) {
-      setState({ isSubscribed: false, isTrial: false, isAdmin: false, loading: false, status: null });
+      setState({ isSubscribed: false, isTrial: false, isAdmin: false, loading: false, status: null, subscriptionStatus: null });
       return;
     }
 
     setState(s => ({ ...s, loading: true }));
 
     try {
-      // Check admin status
+      // Admin status depuis Supabase
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('is_admin')
         .eq('id', user.id)
         .single();
 
-      // Check subscription
-      const { data: sub } = await supabase
-        .from('subscriptions')
-        .select('status, trial_end, current_period_end')
-        .eq('user_id', user.id)
-        .single();
+      // Connecter le user à RevenueCat
+      await revenueCatService.setUserId(user.id);
 
-      const now = new Date();
       let isSubscribed = false;
       let isTrial = false;
+      let status = null;
+      let subscriptionStatus = null;
 
-      if (sub) {
-        if (sub.status === 'active') {
+      // Vérifier via RevenueCat
+      try {
+        const Purchases = require('react-native-purchases').default;
+        const customerInfo = await Purchases.getCustomerInfo();
+        const entitlement = customerInfo.entitlements.active['Bon Plan Pro'];
+        if (entitlement) {
           isSubscribed = true;
-        } else if (sub.status === 'trialing') {
-          const trialEnd = sub.trial_end ? new Date(sub.trial_end) : null;
-          if (trialEnd && trialEnd > now) {
-            isTrial = true;
+          isTrial = entitlement.periodType === 'TRIAL';
+          status = isTrial ? 'trialing' : 'active';
+          subscriptionStatus = { subscription_end: entitlement.expirationDate };
+        }
+      } catch (e) {
+        console.log('[Subscription] RevenueCat check failed, falling back to Supabase');
+      }
+
+      // Fallback vers Supabase si RevenueCat ne trouve rien
+      if (!isSubscribed) {
+        const { data: sub } = await supabase
+          .from('subscriptions')
+          .select('status, trial_end, current_period_end')
+          .eq('user_id', user.id)
+          .single();
+        const now = new Date();
+        if (sub) {
+          if (sub.status === 'active') {
             isSubscribed = true;
+            status = 'active';
+            subscriptionStatus = { subscription_end: sub.current_period_end };
+          } else if (sub.status === 'trialing') {
+            const trialEnd = sub.trial_end ? new Date(sub.trial_end) : null;
+            if (trialEnd && trialEnd > now) {
+              isTrial = true;
+              isSubscribed = true;
+              status = 'trialing';
+              subscriptionStatus = { subscription_end: sub.trial_end };
+            }
           }
         }
       }
@@ -74,11 +105,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         isTrial,
         isAdmin: profile?.is_admin || false,
         loading: false,
-        status: sub?.status || null,
+        status,
+        subscriptionStatus,
       });
     } catch (err) {
       console.error('[Subscription] Error:', err);
-      setState({ isSubscribed: false, isTrial: false, isAdmin: false, loading: false, status: null });
+      setState({ isSubscribed: false, isTrial: false, isAdmin: false, loading: false, status: null, subscriptionStatus: null });
     }
   };
 
@@ -87,7 +119,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, [user?.id]);
 
   return (
-    <SubscriptionContext.Provider value={{ ...state, refetch: fetchSubscription }}>
+    <SubscriptionContext.Provider value={{ ...state, refetch: fetchSubscription, refreshSubscription: fetchSubscription }}>
       {children}
     </SubscriptionContext.Provider>
   );

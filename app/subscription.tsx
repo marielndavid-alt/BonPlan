@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Linking,
+  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -14,9 +8,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useAuth, useAlert } from '@/template';
 import { useSubscription } from '@/hooks/useSubscription';
-import { createCheckoutSession, createCustomerPortalSession } from '@/services/subscriptionService';
-import { SUBSCRIPTION_TIERS } from '@/constants/subscription';
-import { onboardingService } from '@/services/onboardingService';
+import { revenueCatService } from '@/services/revenueCatService';
+import type { PurchasesPackage } from 'react-native-purchases';
 
 export default function SubscriptionScreen() {
   const insets = useSafeAreaInsets();
@@ -24,180 +17,109 @@ export default function SubscriptionScreen() {
   const { user } = useAuth();
   const { showAlert } = useAlert();
   const { subscriptionStatus, loading, isSubscribed, isTrial, refreshSubscription } = useSubscription();
-  const [processingPlan, setProcessingPlan] = useState<'monthly' | 'yearly' | null>(null);
-  const [openingPortal, setOpeningPortal] = useState(false);
+  const [packages, setPackages] = useState<PurchasesPackage[]>([]);
+  const [processingPlan, setProcessingPlan] = useState<string | null>(null);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
-  // Vérifier si l'onboarding est complet
   useEffect(() => {
-    const checkOnboarding = async () => {
-      if (!user) {
-        setCheckingOnboarding(false);
-        return;
-      }
+    setCheckingOnboarding(false);
+  }, []);
 
-      const isComplete = await onboardingService.isOnboardingComplete(user.id);
-      
-      // Si l'onboarding n'est pas complet, rediriger vers l'onboarding
-      if (!isComplete) {
-        router.replace('/onboarding');
-        return;
-      }
-
-      setCheckingOnboarding(false);
+  useEffect(() => {
+    const loadOfferings = async () => {
+      if (user) await revenueCatService.setUserId(user.id);
+      const offering = await revenueCatService.getOfferings();
+      if (offering?.availablePackages) setPackages(offering.availablePackages);
     };
-
-    checkOnboarding();
+    loadOfferings();
   }, [user]);
 
-  const handleSubscribe = async (tier: 'monthly' | 'yearly') => {
-    if (!user) {
-      showAlert('Erreur', 'Vous devez être connecté pour souscrire');
-      return;
-    }
-
+  const handleSubscribe = async (pkg: PurchasesPackage) => {
     try {
-      setProcessingPlan(tier);
-      const priceId = SUBSCRIPTION_TIERS[tier].price_id;
-      const { url, error } = await createCheckoutSession(priceId);
-
-      if (error) {
-        showAlert('Erreur', error);
-        return;
+      setProcessingPlan(pkg.identifier);
+      const { success, error } = await revenueCatService.purchasePackage(pkg);
+      if (success) {
+        await refreshSubscription();
+        showAlert('Succès', 'Votre abonnement est maintenant actif !');
+      } else if (error && !error.userCancelled) {
+        showAlert('Erreur', 'Impossible de compléter l\'achat. Veuillez réessayer.');
       }
-
-      if (url) {
-        await Linking.openURL(url);
-      }
-    } catch (error: any) {
-      console.error('Error in handleSubscribe:', error);
-      showAlert('Erreur', error.message || 'Impossible de créer la session de paiement');
     } finally {
       setProcessingPlan(null);
     }
   };
 
-const handleManageSubscription = async () => {
-  try {
-    await Linking.openURL('https://billing.stripe.com/p/login/00w3cpdicgg0dMObtG7Re00');
-  } catch {
-    showAlert('Erreur', 'Impossible d\'ouvrir le portail. Contactez-nous à hello@bonplan.co');
-  }
-};
+  const handleRestore = async () => {
+    setProcessingPlan('restore');
+    const customerInfo = await revenueCatService.restorePurchases();
+    if (customerInfo) {
+      await refreshSubscription();
+      showAlert('Succès', 'Vos achats ont été restaurés.');
+    } else {
+      showAlert('Info', 'Aucun achat trouvé à restaurer.');
+    }
+    setProcessingPlan(null);
+  };
 
-  if (!user) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>Non connecté</Text>
-        </View>
-      </View>
-    );
-  }
+  const handleManageSubscription = async () => {
+    try {
+      await Linking.openURL('https://apps.apple.com/account/subscriptions');
+    } catch {
+      showAlert('Erreur', 'Impossible d\'ouvrir les paramètres.');
+    }
+  };
 
-  // Afficher un loader pendant la vérification de l'onboarding
-  if (checkingOnboarding) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Vérification...</Text>
-        </View>
+  if (!user) return null;
+  if (checkingOnboarding) return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
-    );
-  }
+    </View>
+  );
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
       <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
-          hitSlop={12}
-        >
+        <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={12}>
           <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
         <View style={styles.headerTextContainer}>
           <Text style={styles.title}>Abonnement</Text>
-          <Text style={styles.subtitle}>
-            Accédez à toutes les fonctionnalités
-          </Text>
+          <Text style={styles.subtitle}>Accédez à toutes les fonctionnalités</Text>
         </View>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : (
           <>
-            {/* Current Status */}
             {isSubscribed && (
               <View style={styles.statusCard}>
                 <View style={styles.statusHeader}>
-                  <MaterialIcons 
-                    name={isTrial ? 'schedule' : 'check-circle'} 
-                    size={32} 
-                    color={isTrial ? colors.accent : '#ebcdf1'} 
-                  />
+                  <MaterialIcons name={isTrial ? 'schedule' : 'check-circle'} size={32} color={isTrial ? colors.accent : '#ebcdf1'} />
                   <View style={styles.statusInfo}>
-                    <Text style={styles.statusTitle}>
-                      {isTrial ? 'Période d\'essai gratuite' : 'Abonnement actif'}
-                    </Text>
+                    <Text style={styles.statusTitle}>{isTrial ? "Période d'essai gratuite" : "Abonnement actif"}</Text>
                     {subscriptionStatus?.subscription_end && (
                       <Text style={styles.statusSubtitle}>
                         {isTrial ? 'Se termine le' : 'Renouvellement le'}{' '}
-                        {new Date(subscriptionStatus.subscription_end).toLocaleDateString('fr-CA', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
+                        {new Date(subscriptionStatus.subscription_end).toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric' })}
                       </Text>
                     )}
                   </View>
                 </View>
-
-                {isTrial && (
-                  <View style={styles.trialBanner}>
-                    <MaterialIcons name="info-outline" size={20} color={colors.accent} />
-                    <Text style={styles.trialText}>
-                      Profitez de 7 jours gratuits ! Votre abonnement débutera après la période d'essai.
-                    </Text>
-                  </View>
-                )}
-
-                <Pressable
-                  onPress={handleManageSubscription}
-                  disabled={openingPortal}
-                  style={({ pressed }) => [
-                    styles.manageButton,
-                    pressed && { opacity: 0.9 },
-                    openingPortal && { opacity: 0.6 },
-                  ]}
-                >
-                  {openingPortal ? (
-                    <ActivityIndicator size="small" color={colors.surface} />
-                  ) : (
-                    <>
-                      <MaterialIcons name="settings" size={20} color={colors.surface} />
-                      <Text style={styles.manageButtonText}>Gérer mon abonnement</Text>
-                    </>
-                  )}
+                <Pressable onPress={handleManageSubscription} style={styles.manageButton}>
+                  <MaterialIcons name="settings" size={20} color={colors.surface} />
+                  <Text style={styles.manageButtonText}>Gérer mon abonnement</Text>
                 </Pressable>
               </View>
             )}
 
-            {/* Features List */}
             <View style={styles.featuresCard}>
-              <Text style={styles.sectionTitle}>
-                {isSubscribed ? 'Vos fonctionnalités Premium' : 'Fonctionnalités Premium'}
-              </Text>
+              <Text style={styles.sectionTitle}>{isSubscribed ? 'Vos fonctionnalités Premium' : 'Fonctionnalités Premium'}</Text>
               <View style={styles.featuresList}>
                 {[
                   { icon: 'restaurant-menu', text: 'Recettes économiques par épicerie' },
@@ -205,7 +127,6 @@ const handleManageSubscription = async () => {
                   { icon: 'shopping-cart', text: 'Listes de courses intelligentes' },
                   { icon: 'group', text: 'Partage de compte familial' },
                   { icon: 'local-offer', text: 'Circulaires et rabais' },
-                  { icon: 'savings', text: 'Suivi des économies mensuelles' },
                 ].map((feature, index) => (
                   <View key={index} style={styles.featureItem}>
                     <MaterialIcons name={feature.icon as any} size={24} color={'#ebcdf1'} />
@@ -215,101 +136,53 @@ const handleManageSubscription = async () => {
               </View>
             </View>
 
-            {/* Subscription Plans */}
             {!isSubscribed && (
               <>
                 <Text style={styles.plansTitle}>Choisissez votre plan</Text>
-                
-                {/* Monthly Plan */}
-                <View style={styles.planCard}>
-                  <View style={styles.planHeader}>
-                    <View>
-                      <Text style={styles.planName}>Mensuel</Text>
-                      <Text style={styles.planPrice}>
-                        5$ <Text style={styles.planInterval}>/ mois</Text>
-                      </Text>
+                {packages.map((pkg) => {
+                  const isYearly = pkg.identifier.toLowerCase().includes('annual') || pkg.identifier.toLowerCase().includes('yearly') || pkg.identifier === '$rc_annual';
+                  return (
+                    <View key={pkg.identifier} style={[styles.planCard, isYearly && styles.popularPlan]}>
+                      {isYearly && (
+                        <View style={styles.popularBadge}>
+                          <Text style={styles.popularBadgeText}>ÉCONOMIE</Text>
+                        </View>
+                      )}
+                      <View style={styles.planHeader}>
+                        <Text style={styles.planName}>{pkg.product.title || (isYearly ? 'Annuel' : 'Mensuel')}</Text>
+                        <Text style={styles.planPrice}>{pkg.product.priceString} <Text style={styles.planInterval}>{isYearly ? '/ an' : '/ mois'}</Text></Text>
+                        {isYearly && <Text style={styles.savingsText}>Économisez 10$ par an</Text>}
+                      </View>
+                      <View style={styles.trialBadge}>
+                        <MaterialIcons name="check-circle" size={16} color={'#ebcdf1'} />
+                        <Text style={styles.trialBadgeText}>7 jours gratuits</Text>
+                      </View>
+                      <Pressable
+                        onPress={() => handleSubscribe(pkg)}
+                        disabled={processingPlan === pkg.identifier}
+                        style={[styles.subscribeButton, isYearly && styles.popularButton, processingPlan === pkg.identifier && { opacity: 0.6 }]}
+                      >
+                        {processingPlan === pkg.identifier
+                          ? <ActivityIndicator size="small" color={colors.surface} />
+                          : <Text style={styles.subscribeButtonText}>Commencer l'essai gratuit</Text>}
+                      </Pressable>
                     </View>
-                  </View>
-                  <View style={styles.trialBadge}>
-                    <MaterialIcons name="check-circle" size={16} color={'#ebcdf1'} />
-                    <Text style={styles.trialBadgeText}>7 jours gratuits</Text>
-                  </View>
-                  <Pressable
-                    onPress={() => handleSubscribe('monthly')}
-                    disabled={processingPlan === 'monthly'}
-                    style={({ pressed }) => [
-                      styles.subscribeButton,
-                      pressed && { opacity: 0.9 },
-                      processingPlan === 'monthly' && { opacity: 0.6 },
-                    ]}
-                  >
-                    {processingPlan === 'monthly' ? (
-                      <ActivityIndicator size="small" color={colors.surface} />
-                    ) : (
-                      <Text style={styles.subscribeButtonText}>Commencer l'essai gratuit</Text>
-                    )}
-                  </Pressable>
-                </View>
-
-                {/* Yearly Plan */}
-                <View style={[styles.planCard, styles.popularPlan]}>
-                  <View style={styles.popularBadge}>
-                    <Text style={styles.popularBadgeText}>ÉCONOMIE</Text>
-                  </View>
-                  <View style={styles.planHeader}>
-                    <View>
-                      <Text style={styles.planName}>Annuel</Text>
-                      <Text style={styles.planPrice}>
-                        50$ <Text style={styles.planInterval}>/ an</Text>
-                      </Text>
-                      <Text style={styles.savingsText}>Économisez 10$ par an</Text>
-                    </View>
-                  </View>
-                  <View style={styles.trialBadge}>
-                    <MaterialIcons name="check-circle" size={16} color={'#ebcdf1'} />
-                    <Text style={styles.trialBadgeText}>7 jours gratuits</Text>
-                  </View>
-                  <Pressable
-                    onPress={() => handleSubscribe('yearly')}
-                    disabled={processingPlan === 'yearly'}
-                    style={({ pressed }) => [
-                      styles.subscribeButton,
-                      styles.popularButton,
-                      pressed && { opacity: 0.9 },
-                      processingPlan === 'yearly' && { opacity: 0.6 },
-                    ]}
-                  >
-                    {processingPlan === 'yearly' ? (
-                      <ActivityIndicator size="small" color={colors.surface} />
-                    ) : (
-                      <Text style={styles.subscribeButtonText}>Commencer l'essai gratuit</Text>
-                    )}
-                  </Pressable>
-                </View>
-
-                {/* Free Access Info */}
+                  );
+                })}
                 <View style={styles.freeAccessCard}>
                   <MaterialIcons name="info-outline" size={24} color={colors.textSecondary} />
-                  <Text style={styles.freeAccessText}>
-                    Sans abonnement, vous pouvez uniquement consulter la circulaire et les rabais.
-                  </Text>
+                  <Text style={styles.freeAccessText}>Sans abonnement, vous pouvez uniquement consulter la circulaire et les rabais.</Text>
                 </View>
               </>
             )}
 
-            <Pressable
-              onPress={refreshSubscription}
-              style={({ pressed }) => [
-                styles.refreshButton,
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <MaterialIcons name="refresh" size={20} color={colors.primary} />
-              <Text style={styles.refreshButtonText}>Actualiser le statut</Text>
+            <Pressable onPress={handleRestore} disabled={processingPlan === 'restore'} style={styles.refreshButton}>
+              {processingPlan === 'restore'
+                ? <ActivityIndicator size="small" color={colors.primary} />
+                : <><MaterialIcons name="restore" size={20} color={colors.primary} /><Text style={styles.refreshButtonText}>Restaurer mes achats</Text></>}
             </Pressable>
           </>
         )}
-
         <View style={{ height: spacing.xxl }} />
       </ScrollView>
     </View>
@@ -317,253 +190,45 @@ const handleManageSubscription = async () => {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.background,
-  },
-  backButton: {
-    padding: spacing.xs,
-  },
-  headerTextContainer: {
-    flex: 1,
-  },
-  title: {
-    ...typography.h2,
-    color: colors.text,
-  },
-  subtitle: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-  },
-  loadingContainer: {
-    paddingVertical: spacing.xxl,
-    alignItems: 'center',
-  },
-  statusCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    borderWidth: 2,
-    borderColor: '#ebcdf1',
-    ...shadows.md,
-  },
-  statusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  statusInfo: {
-    flex: 1,
-  },
-  statusTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  statusSubtitle: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  trialBanner: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    backgroundColor: colors.yellowLight,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  trialText: {
-    flex: 1,
-    ...typography.caption,
-    color: colors.text,
-    lineHeight: 18,
-  },
-  manageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.accent,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  manageButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.surface,
-  },
-  featuresCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.sm,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    color: colors.text,
-    marginBottom: spacing.md,
-  },
-  featuresList: {
-    gap: spacing.md,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  featureText: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-  },
-  plansTitle: {
-    ...typography.h2,
-    color: colors.text,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  planCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.sm,
-  },
-  popularPlan: {
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  popularBadge: {
-    position: 'absolute',
-    top: -12,
-    right: spacing.lg,
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-  },
-  popularBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.surface,
-  },
-  planHeader: {
-    marginBottom: spacing.md,
-  },
-  planName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  planPrice: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  planInterval: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.textSecondary,
-  },
-  savingsText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ebcdf1',
-    marginTop: spacing.xs,
-  },
-  trialBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  trialBadgeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ebcdf1',
-  },
-  subscribeButton: {
-    backgroundColor: colors.accent,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  popularButton: {
-    backgroundColor: colors.primary,
-  },
-  subscribeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.surface,
-  },
-  freeAccessCard: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  freeAccessText: {
-    flex: 1,
-    ...typography.caption,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-  },
-  refreshButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  errorText: {
-    ...typography.h3,
-    color: colors.textSecondary,
-  },
-  loadingText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  backButton: { padding: spacing.xs },
+  headerTextContainer: { flex: 1 },
+  title: { ...typography.h2, color: colors.text },
+  subtitle: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.xs },
+  scrollView: { flex: 1 },
+  content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
+  loadingContainer: { paddingVertical: spacing.xxl, alignItems: 'center' },
+  statusCard: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.lg, marginBottom: spacing.lg, borderWidth: 2, borderColor: '#ebcdf1' },
+  statusHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  statusInfo: { flex: 1 },
+  statusTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  statusSubtitle: { ...typography.caption, color: colors.textSecondary },
+  manageButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.accent, paddingVertical: spacing.md, borderRadius: borderRadius.md },
+  manageButtonText: { fontSize: 16, fontWeight: '600', color: colors.surface },
+  featuresCard: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.lg, marginBottom: spacing.lg, borderWidth: 1, borderColor: colors.border },
+  sectionTitle: { ...typography.h3, color: colors.text, marginBottom: spacing.md },
+  featuresList: { gap: spacing.md },
+  featureItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  featureText: { flex: 1, fontSize: 16, color: colors.text },
+  plansTitle: { ...typography.h2, color: colors.text, marginBottom: spacing.md, textAlign: 'center' },
+  planCard: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.lg, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border },
+  popularPlan: { borderWidth: 2, borderColor: colors.primary },
+  popularBadge: { position: 'absolute', top: -12, right: spacing.lg, backgroundColor: colors.primary, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.sm },
+  popularBadgeText: { fontSize: 12, fontWeight: '700', color: colors.surface },
+  planHeader: { marginBottom: spacing.md },
+  planName: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: spacing.xs },
+  planPrice: { fontSize: 32, fontWeight: '700', color: colors.primary },
+  planInterval: { fontSize: 16, fontWeight: '400', color: colors.textSecondary },
+  savingsText: { fontSize: 14, fontWeight: '600', color: '#ebcdf1', marginTop: spacing.xs },
+  trialBadge: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.md },
+  trialBadgeText: { fontSize: 14, fontWeight: '600', color: '#ebcdf1' },
+  subscribeButton: { backgroundColor: colors.accent, paddingVertical: spacing.md, borderRadius: borderRadius.md, alignItems: 'center', justifyContent: 'center', minHeight: 48 },
+  popularButton: { backgroundColor: colors.primary },
+  subscribeButtonText: { fontSize: 16, fontWeight: '600', color: colors.surface },
+  freeAccessCard: { flexDirection: 'row', gap: spacing.md, backgroundColor: colors.surfaceLight, borderRadius: borderRadius.lg, padding: spacing.lg, marginTop: spacing.md, marginBottom: spacing.lg, borderWidth: 1, borderColor: colors.border },
+  freeAccessText: { flex: 1, ...typography.caption, color: colors.textSecondary, lineHeight: 20 },
+  refreshButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.md },
+  refreshButtonText: { fontSize: 16, fontWeight: '600', color: colors.primary },
 });

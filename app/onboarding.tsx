@@ -18,8 +18,7 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius } from '@/constants/theme';
 import { onboardingService, OnboardingData } from '@/services/onboardingService';
-import { createCheckoutSession } from '@/services/subscriptionService';
-import { SUBSCRIPTION_TIERS } from '@/constants/subscription';
+import { revenueCatService } from '@/services/revenueCatService';
 import { Linking } from 'react-native';
 import { useAlert } from '@/template';
 import * as Notifications from 'expo-notifications';
@@ -194,30 +193,27 @@ await onboardingService.savePreferences({
 
   const handleSubscription = async (planType: 'monthly' | 'yearly') => {
     setSubscriptionLoading(true);
-    
-    const priceId = SUBSCRIPTION_TIERS[planType].price_id;
-    const { url, error } = await createCheckoutSession(priceId);
-    
-    if (error || !url) {
-      showAlert('Erreur', error || 'Impossible de créer la session de paiement');
-      setSubscriptionLoading(false);
-      return;
-    }
-    
-    // Ouvrir l'URL Stripe dans le navigateur
     try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-        // Passer à l'étape suivante après avoir ouvert la page de paiement
+      const offering = await revenueCatService.getOfferings();
+      if (!offering?.availablePackages?.length) {
+        showAlert('Erreur', 'Aucun plan disponible. Veuillez réessayer.');
+        setSubscriptionLoading(false);
+        return;
+      }
+      const pkg = offering.availablePackages.find((p: any) =>
+        planType === 'monthly'
+          ? p.identifier.includes('monthly') || p.identifier === '$rc_monthly'
+          : p.identifier.includes('annual') || p.identifier.includes('yearly') || p.identifier === '$rc_annual'
+      ) || offering.availablePackages[0];
+      const { success, error } = await revenueCatService.purchasePackage(pkg);
+      if (success) {
         setCurrentStep(currentStep + 1);
-      } else {
-        showAlert('Erreur', 'Impossible d\'ouvrir le lien de paiement');
+      } else if (error && !error.userCancelled) {
+        showAlert('Erreur', "Impossible de completer l'achat. Veuillez reessayer.");
       }
     } catch (err) {
-      showAlert('Erreur', 'Une erreur est survenue lors de l\'ouverture du paiement');
+      showAlert('Erreur', 'Une erreur est survenue.');
     }
-    
     setSubscriptionLoading(false);
   };
 

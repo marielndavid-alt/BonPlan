@@ -10,6 +10,7 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, spacing, typography, borderRadius } from '@/constants/theme';
 import { useAuth, useAlert, getSupabaseClient } from '@/template';
 
@@ -18,7 +19,7 @@ type AuthMode = 'connexion' | 'inscription';
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signInWithPassword, signInWithGoogle, operationLoading } = useAuth();
+  const { signInWithPassword, operationLoading } = useAuth();
   const { showAlert } = useAlert();
 
   const [mode, setMode] = useState<AuthMode>('connexion');
@@ -27,6 +28,17 @@ export default function LoginScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      showAlert('Email requis', 'Entrez votre email pour réinitialiser votre mot de passe.');
+      return;
+    }
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) showAlert('Erreur', error.message);
+    else showAlert('Email envoyé!', 'Vérifiez votre boîte email pour réinitialiser votre mot de passe.');
+  };
 
   const handleLogin = async () => {
     if (!email || !password) { showAlert('Erreur', 'Veuillez remplir tous les champs'); return; }
@@ -38,7 +50,7 @@ export default function LoginScreen() {
         showAlert('Erreur', error);
       }
     } else if (user) {
-      router.replace('/(tabs)');
+      router.replace('/');
     }
   };
 
@@ -70,10 +82,29 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    const { error } = await signInWithGoogle();
-    if (error) showAlert('Erreur', error);
+  const handleAppleLogin = async () => {
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken!,
+      });
+      if (error) showAlert('Erreur', error.message);
+      else router.replace('/');
+    } catch (e: any) {
+      if (e.code !== 'ERR_REQUEST_CANCELED') {
+        showAlert('Erreur', 'Connexion Apple impossible. Veuillez réessayer.');
+      }
+    }
   };
+
+
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -123,7 +154,7 @@ export default function LoginScreen() {
                 )}
 
                 {mode === 'connexion' && (
-                  <Pressable style={styles.forgotPassword}>
+                  <Pressable style={styles.forgotPassword} onPress={handleForgotPassword}>
                     <Text style={styles.forgotPasswordText}>Vous avez oublié votre mot de passe?</Text>
                   </Pressable>
                 )}
@@ -141,10 +172,14 @@ export default function LoginScreen() {
                 {mode === 'connexion' && (
                   <>
                     <Text style={styles.dividerText}>ou</Text>
-                    <Pressable style={styles.googleButton} onPress={handleGoogleLogin} disabled={operationLoading}>
-                      <MaterialIcons name="mail" size={24} color={colors.text} />
-                      <Text style={styles.googleButtonText}>Continuer avec Google</Text>
-                    </Pressable>
+                    <AppleAuthentication.AppleAuthenticationButton
+                      buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                      buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                      cornerRadius={30}
+                      style={{ width: '100%', height: 48, marginBottom: 12 }}
+                      onPress={handleAppleLogin}
+                    />
+
                   </>
                 )}
               </View>
@@ -157,7 +192,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-backgroundImage: { flex: 1, width: '100%', height: '100%', backgroundColor: '#1a1a2e' },  gradient: { flex: 1 },
+backgroundImage: { flex: 1, width: '100%', height: '100%', backgroundColor: '#ff3131' },  gradient: { flex: 1 },
   container: { flex: 1 },
   scrollContent: { flexGrow: 1, padding: spacing.lg, justifyContent: 'space-between', paddingBottom: spacing.xxl },
   heroSection: { alignItems: 'center', paddingTop: spacing.xxl, paddingBottom: spacing.xl },

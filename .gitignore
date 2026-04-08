@@ -15,3 +15,4 @@ ios/Pods 2
 
 # Environment
 .env
+eas.json

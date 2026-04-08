@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
+import { revenueCatService } from '@/services/revenueCatService';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, AlertProvider, configManager, createConfig } from '@/template';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
@@ -12,6 +13,10 @@ configManager.initialize(createConfig({
 }));
 
 export default function RootLayout() {
+  useEffect(() => {
+    revenueCatService.initialize();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AlertProvider>

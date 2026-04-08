@@ -122,6 +122,30 @@ export default function SettingsScreen() {
     setSwitchValue(notificationsEnabled);
   }, [notificationsEnabled]);
 
+  const handleDeleteAccount = async () => {
+    showAlert(
+      'Supprimer mon compte',
+      'Cette action est irréversible. Toutes vos données seront supprimées définitivement.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const supabase = getSupabaseClient();
+              await supabase.rpc('delete_user_account');
+              await logout();
+              router.replace('/login');
+            } catch (error) {
+              showAlert('Erreur', 'Impossible de supprimer le compte. Contactez hello@bonplan.co');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
@@ -133,7 +157,7 @@ export default function SettingsScreen() {
       }
       // Rediriger vers l'écran de login après une déconnexion réussie
       setIsLoggingOut(false);
-      if (typeof window !== 'undefined') { window.location.href = '/login'; } else { router.replace('/login'); }
+      router.replace('/login');
     } catch (err) {
       console.error('Logout error:', err);
       showAlert('Erreur', 'Impossible de se déconnecter. Veuillez réessayer.');
@@ -283,6 +307,16 @@ onPress={async () => {
             <Text style={styles.logoutButtonText}>
               {isLoggingOut ? 'Déconnexion...' : 'Se déconnecter'}
             </Text>
+          </Pressable>
+        )}
+
+        {user && (
+          <Pressable
+            style={({ pressed }) => [{ flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8, paddingVertical:16, marginHorizontal:16, marginBottom:8 }, pressed && { opacity: 0.7 }]}
+            onPress={handleDeleteAccount}
+          >
+            <MaterialIcons name="delete-forever" size={20} color="#999" />
+            <Text style={{ fontSize:14, color:'#999' }}>Supprimer mon compte</Text>
           </Pressable>
         )}
 

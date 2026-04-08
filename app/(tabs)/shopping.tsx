@@ -10,8 +10,6 @@ import { shoppingStorePreferencesService } from '@/services/shoppingStorePrefere
 import { ShoppingListItem } from '@/components/feature/ShoppingListItem';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSubscription } from '@/hooks/useSubscription';
-import { createCheckoutSession } from '@/services/subscriptionService';
-import { SUBSCRIPTION_TIERS } from '@/constants/subscription';
 import { useAlert } from '@/template';
 import { productSelectionService, ProductWithPrice } from '@/services/productSelectionService';
 import { ShoppingListItem as ShoppingListItemType, ShoppingListCategory } from '@/types';
@@ -285,14 +283,7 @@ export default function ShoppingScreen() {
     if (!result.canceled && result.assets[0]) setEditPhoto(result.assets[0].uri);
   };
 
-  const handleSubscription = async (planType: 'monthly' | 'yearly') => {
-    setSubscriptionLoading(true);
-    const priceId = SUBSCRIPTION_TIERS[planType].price_id;
-    const { url, error } = await createCheckoutSession(priceId);
-    if (error || !url) { showAlert('Erreur', error || 'Impossible de créer la session de paiement'); setSubscriptionLoading(false); return; }
-    try { if (await Linking.canOpenURL(url)) await Linking.openURL(url); else showAlert('Erreur', "Impossible d'ouvrir le lien"); } catch { showAlert('Erreur', 'Une erreur est survenue'); }
-    setSubscriptionLoading(false);
-  };
+  const handleSubscription = () => router.push('/subscription');
 
   if (!hasAccess) {
     return (

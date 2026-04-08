@@ -5,7 +5,7 @@
     "slug": "onspace-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon-square.png",
+    "icon": "./assets/images/BP.png",
     "splash": {
       "image": "./assets/images/icon-square.png",
       "resizeMode": "cover",
@@ -18,18 +18,19 @@
       "bundleIdentifier": "co.bonplan.app",
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification",
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "co.bonplan.app"
     },
     "web": {
       "bundler": "metro",
@@ -41,7 +42,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/icon-square.png",
+          "image": "./assets/images/BP.png",
           "resizeMode": "cover",
           "backgroundColor": "#000000"
         }

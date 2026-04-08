@@ -15,7 +15,12 @@
       "autoIncrement": true,
       "node": "20.18.0",
       "env": {
-        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://wurvstyckmuktgapqstm.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1cnZzdHlja211a3RnYXBxc3RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODYyMDQsImV4cCI6MjA4NzM2MjIwNH0.wblESinZ62k2l_2t03-C1LYto9gybLEObzc64nQpdZQ",
+        "EXPO_PUBLIC_ANTHROPIC_API_KEY": "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",
+        "EXPO_PUBLIC_REVENUECAT_APPLE_KEY": "appl_sjHctCESxpKdlVKyAiwfsNtkcsn"
+
       }
     }
   },

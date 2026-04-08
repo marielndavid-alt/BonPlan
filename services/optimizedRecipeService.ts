@@ -1,3 +1,60 @@
+
+async function applyWeeklyRotation(recipes: Recipe[], filters: RecipeFilters): Promise<Recipe[]> {
+  try {
+    // Calculer le début de la semaine courante (lundi)
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const weekStart = new Date(now.setDate(diff));
+    weekStart.setHours(0, 0, 0, 0);
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+
+    // Vérifier si on a déjà une sélection pour cette semaine
+    const { data: thisWeek } = await supabase
+      .from('recipe_weekly_schedule')
+      .select('recipe_id')
+      .eq('week_start', weekStartStr);
+
+    // Si on a déjà des recettes pour cette semaine, les retourner
+    if (thisWeek && thisWeek.length > 0) {
+      const thisWeekIds = new Set(thisWeek.map((r: any) => r.recipe_id));
+      const scheduled = recipes.filter(r => thisWeekIds.has(r.id));
+      if (scheduled.length > 0) return scheduled;
+    }
+
+    // Récupérer les recettes proposées dans les 4 dernières semaines
+    const fourWeeksAgo = new Date(weekStart);
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+    const { data: recentSchedule } = await supabase
+      .from('recipe_weekly_schedule')
+      .select('recipe_id')
+      .gte('week_start', fourWeeksAgo.toISOString().split('T')[0]);
+
+    const recentIds = new Set((recentSchedule || []).map((r: any) => r.recipe_id));
+
+    // Filtrer les recettes non proposées récemment
+    let available = recipes.filter(r => !recentIds.has(r.id));
+
+    // Si pas assez de recettes disponibles, prendre toutes les recettes
+    if (available.length < 4) available = recipes;
+
+    // Sélectionner aléatoirement 8 recettes
+    const shuffled = available.sort(() => Math.random() - 0.5).slice(0, 8);
+
+    // Enregistrer la sélection pour cette semaine
+    if (shuffled.length > 0) {
+      await supabase.from('recipe_weekly_schedule').insert(
+        shuffled.map(r => ({ recipe_id: r.id, week_start: weekStartStr }))
+      );
+    }
+
+    return shuffled;
+  } catch (e) {
+    console.error('[applyWeeklyRotation]', e);
+    return recipes.slice(0, 8);
+  }
+}
+
 import { supabase } from '@/lib/supabase';
 import { Recipe } from '@/types';
 
@@ -132,7 +189,8 @@ export const optimizedRecipeService = {
       }
 
       const mapped = (data || []).map(mapDbRecipe);
-      return await adjustPricesForPantry(mapped);
+      const withPrices = await adjustPricesForPantry(mapped);
+      return await applyWeeklyRotation(withPrices, filters);
     } catch (err) {
       console.error('[RecipeService] Exception:', err);
       return [];
