@@ -160,7 +160,6 @@ export default function CircularScreen() {
         <View style={styles.headerTop}>
           <View>
             <Text style={styles.title}>Circulaire</Text>
-            <Text style={styles.subtitle}>Les meilleurs rabais de la semaine</Text>
           </View>
           <Pressable style={styles.filterButton} onPress={() => setShowFilters(true)}>
   <MaterialIcons name="tune" size={22} color="#fff" />
@@ -295,7 +294,7 @@ const styles = StyleSheet.create({
   backgroundColor: '#9B59B6',
 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  title: { ...typography.h1, color: colors.text, marginBottom: spacing.xs },
+  title: { ...typography.h1, color: colors.text, marginBottom: spacing.xs, fontFamily: 'InstrumentSerif_400Regular', fontSize: 48 },
   subtitle: { ...typography.body, color: colors.textSecondary },
   filterButton: {
     width: 44, height: 44,

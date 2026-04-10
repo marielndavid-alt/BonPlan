@@ -16,6 +16,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useAuth, useAlert } from '@/template';
 import { useRouter } from 'expo-router';
+import { useFonts, InstrumentSerif_400Regular } from '@expo-google-fonts/instrument-serif';
 import { getSupabaseClient } from '@/template';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -208,7 +209,6 @@ const handleReferral = async () => {
       {/* Hero Section */}
       <View style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}>
         <Text style={styles.title}>Paramètres</Text>
-        <Text style={styles.subtitle}>Gérez votre compte et vos préférences</Text>
       </View>
 
       <ScrollView 
@@ -346,6 +346,9 @@ const styles = StyleSheet.create({
     ...typography.h1,
     color: colors.text,
     marginBottom: spacing.xs,
+    fontFamily: 'InstrumentSerif_400Regular',
+    fontSize: 48,
+    textAlign: 'left',
   },
   subtitle: {
     ...typography.body,

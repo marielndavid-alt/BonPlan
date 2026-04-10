@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useFonts, InstrumentSerif_400Regular } from '@expo-google-fonts/instrument-serif';
 import { colors, spacing, typography, borderRadius, shadows, storeInfo } from '@/constants/theme';
 import { useShoppingList } from '@/hooks/useShoppingList';
 import { shoppingStorePreferencesService } from '@/services/shoppingStorePreferencesService';
@@ -291,13 +292,11 @@ export default function ShoppingScreen() {
         <View style={styles.container}>
           <Animated.View style={[styles.header, { paddingTop: insets.top + spacing.xl, zIndex: 20, transform: [{ translateY: headerTranslateY }] }]}>
             <Text style={styles.title}>Liste d'épicerie</Text>
-            <Text style={styles.subtitle}>Organisez vos courses efficacement</Text>
           </Animated.View>
           <ScrollView style={styles.scrollView} contentContainerStyle={styles.lockedContentContainer} showsVerticalScrollIndicator={false}>
             <View style={styles.lockedContainer}>
-              <MaterialIcons name="shopping-cart" size={80} color={colors.border} />
               <Text style={styles.lockedTitle}>L'abonnement te fait économiser plus</Text>
-              <Text style={styles.lockedText}>Créez vos listes personnalisées, comparez les prix et économisez en moyenne de 1250$ par année!</Text>
+              <Text style={styles.lockedText}>Accède à toutes les recettes, compare les prix et économise en moyenne 1 250$ par année!</Text>
               <View style={styles.pricingCard}>
                 <Text style={styles.pricingPeriod}>Mensuel</Text><Text style={styles.pricingAmount}>5$ /mois</Text><Text style={styles.pricingTrial}>7 jours gratuits!</Text>
                 <Pressable style={styles.pricingButton} onPress={() => handleSubscription('monthly')} disabled={subscriptionLoading}>
@@ -332,7 +331,6 @@ export default function ShoppingScreen() {
       <View style={styles.container}>
         <Animated.View style={[styles.header, { paddingTop: insets.top + spacing.xl, zIndex: 20, transform: [{ translateY: headerTranslateY }] }]}>
           <Text style={styles.title}>Liste d'épicerie</Text>
-          <Text style={styles.subtitle}>Organisez vos courses efficacement</Text>
 
           <View style={styles.buttonsRow}>
             <Pressable onPress={() => router.push('/pantry')} style={({ pressed }) => [styles.pantryButton, pressed && { opacity: 0.8 }]}>
@@ -357,7 +355,7 @@ export default function ShoppingScreen() {
 
           {bestStoreForList && (
   <View style={styles.bestStoreCard}>
-    <MaterialIcons name="star" size={20} color={colors.primary} />
+    <MaterialIcons name="star" size={16} color="white" />
     <Text style={styles.bestStoreCardText}>
       <Text style={styles.bestStoreCardName}>{storeInfo[bestStoreForList.storeCode]?.name}</Text>
       {' '}— L'épicerie la moins chère pour vos courses
@@ -571,7 +569,7 @@ export default function ShoppingScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.darkBeige, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg, borderBottomLeftRadius: borderRadius.xl, borderBottomRightRadius: borderRadius.xl, zIndex: 1 },
-  title: { ...typography.h1, color: colors.text, marginBottom: spacing.xs },
+  title: { ...typography.h1, color: colors.text, marginBottom: spacing.xs, fontFamily: 'InstrumentSerif_400Regular', fontSize: 48 },
   subtitle: { ...typography.body, color: colors.textSecondary },
   buttonsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginTop: spacing.md },
   pantryButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: borderRadius.full, borderWidth: 2, borderColor: colors.primary, backgroundColor: 'transparent' },
@@ -598,19 +596,19 @@ const styles = StyleSheet.create({
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xxl * 2 },
   emptyText: { ...typography.h3, color: colors.textSecondary, marginTop: spacing.lg },
   emptySubtext: { ...typography.caption, color: colors.textLight, marginTop: spacing.xs },
-  lockedContentContainer: { paddingHorizontal: spacing.lg, paddingVertical: spacing.lg },
-  lockedContainer: { alignItems: 'center', paddingVertical: spacing.xl, paddingBottom: 100 },
-  lockedTitle: { fontSize: 32, fontWeight: '400', color: colors.text, textAlign: 'center', marginTop: spacing.lg, marginBottom: spacing.sm, ...Platform.select({ ios: { fontFamily: 'Georgia' }, android: { fontFamily: 'serif' }, default: { fontFamily: 'Georgia' } }) },
-  lockedText: { ...typography.body, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.xl, lineHeight: 24 },
-  pricingCard: { width: '100%', backgroundColor: colors.surface, borderRadius: borderRadius.xl, padding: spacing.xl, marginBottom: spacing.lg, alignItems: 'center', borderWidth: 2, borderColor: colors.border, position: 'relative' },
+  lockedContentContainer: { paddingHorizontal: spacing.md, paddingTop: 140, paddingBottom: spacing.sm },
+  lockedContainer: { alignItems: 'center', paddingVertical: spacing.sm, paddingBottom: 20 },
+  lockedTitle: { fontSize: 28, fontWeight: '800', color: colors.text, textAlign: 'center', marginTop: spacing.sm, marginBottom: spacing.sm, fontFamily: 'OpenSans_600SemiBold', letterSpacing: -0.8 },
+  lockedText: { ...typography.body, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.sm, lineHeight: 20, fontSize: 13 },
+  pricingCard: { width: '100%', backgroundColor: colors.surface, borderRadius: borderRadius.xl, padding: spacing.md, marginBottom: spacing.sm, alignItems: 'center', borderWidth: 2, borderColor: colors.border, position: 'relative' },
   pricingCardPopular: { borderColor: colors.accent, borderWidth: 3 },
   popularBadge: { position: 'absolute', top: -12, right: spacing.lg, backgroundColor: colors.accent, borderRadius: borderRadius.full, paddingVertical: 4, paddingHorizontal: spacing.md },
   popularBadgeText: { fontSize: 12, fontWeight: '700', color: colors.surface },
   pricingPeriod: { fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: spacing.sm },
   pricingAmount: { fontSize: 36, fontWeight: '400', color: colors.text, marginBottom: spacing.xs, ...Platform.select({ ios: { fontFamily: 'Georgia' }, android: { fontFamily: 'serif' }, default: { fontFamily: 'Georgia' } }) },
   pricingTrial: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.md },
-  pricingButton: { backgroundColor: colors.primary, borderRadius: borderRadius.full, paddingVertical: spacing.md, paddingHorizontal: spacing.xl },
-  pricingButtonText: { fontSize: 14, fontWeight: '600', color: colors.surface },
+  pricingButton: { backgroundColor: '#ebcdf1', borderRadius: borderRadius.full, paddingVertical: spacing.md, paddingHorizontal: spacing.xl },
+  pricingButtonText: { fontSize: 14, fontWeight: '600', color: colors.text },
   freeAccessInfo: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, marginTop: spacing.md },
   freeAccessText: { flex: 1, fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
   scrollView: { flex: 1 },
@@ -672,7 +670,7 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   clearButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: borderRadius.full, borderWidth: 2, borderColor: colors.error, backgroundColor: 'transparent' },
   clearButtonText: { ...typography.body, color: colors.error, fontSize: 14, fontWeight: '600' },
-bestStoreCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.sm, marginTop: spacing.sm, borderLeftWidth: 3, borderLeftColor: colors.primary },
-bestStoreCardText: { ...typography.caption, color: colors.text, flex: 1 },
-bestStoreCardName: { ...typography.captionBold, color: colors.primary, fontWeight: '700' },
+bestStoreCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: '#e8402a', borderRadius: borderRadius.full, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginTop: spacing.sm },
+bestStoreCardText: { ...typography.caption, color: 'white', flex: 1 },
+bestStoreCardName: { ...typography.captionBold, color: 'white', fontWeight: '700' },
 });

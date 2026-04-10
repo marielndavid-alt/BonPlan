@@ -6,6 +6,7 @@ import {
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useFonts, InstrumentSerif_400Regular } from '@expo-google-fonts/instrument-serif';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '@/constants/theme';
 import { useOptimizedRecipes } from '@/hooks/useOptimizedRecipes';
@@ -18,6 +19,7 @@ import { useAlert } from '@/template';
 export default function RecipesHomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  useFonts({ InstrumentSerif_400Regular });
   const { user } = useAuth();
   const { isSubscribed, isTrial } = useSubscription();
   const { menuItems, addMenuItem, removeMenuItem } = useWeeklyMenu();
@@ -232,7 +234,7 @@ export default function RecipesHomeScreen() {
       <View style={styles.container}>
         <View style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}>
           <View style={styles.greetingRow}>
-          <Text style={styles.greeting}>Bonjour {user?.username || ''},</Text>
+          <Text style={styles.greeting}>Recettes</Text>
           {activeTab === 'all' && (
             <Pressable style={styles.filterIconButton} onPress={() => setShowFilters(true)}>
               <MaterialIcons name="tune" size={22} color="#fff" />
@@ -244,12 +246,11 @@ export default function RecipesHomeScreen() {
             </Pressable>
           )}
         </View>
-          <Text style={styles.subtitle}>Abonnez-vous pour accéder aux recettes et faire de grosses économies!</Text>
         </View>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.lockedContent} showsVerticalScrollIndicator={false}>
           <View style={styles.lockedContainer}>
             <Text style={styles.lockedTitle}>L'abonnement te fait économiser plus</Text>
-            <Text style={styles.lockedText}>Accédez à toutes les recettes, comparez les prix et économisez en moyenne de 1250$ par année!</Text>
+            <Text style={styles.lockedText}>Accède à toutes les recettes, compare les prix et économise en moyenne 1 250$ par année!</Text>
             <View style={styles.pricingCard}>
               <Text style={styles.pricingPeriod}>Mensuel</Text>
               <Text style={styles.pricingAmount}>5$ /mois</Text>
@@ -289,7 +290,7 @@ export default function RecipesHomeScreen() {
     <View style={styles.container}>
       <View style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}>
         <View style={styles.greetingRow}>
-          <Text style={styles.greeting}>Bonjour {user?.username || ''},</Text>
+          <Text style={styles.greeting}>Recettes</Text>
           {activeTab === 'all' && (
             <Pressable style={styles.filterIconButton} onPress={() => setShowFilters(true)}>
               <MaterialIcons name="tune" size={22} color="#fff" />
@@ -301,9 +302,7 @@ export default function RecipesHomeScreen() {
             </Pressable>
           )}
         </View>
-        <Text style={styles.subtitle}>
-          {user?.username ? `Voici les recettes les plus économiques cette semaine` : `Voici ce qu'il y a au menu cette semaine.`}
-        </Text>
+
         {renderTabBar()}
         {activeTab === 'deals' && renderStoreFilter()}
       </View>
@@ -313,14 +312,12 @@ export default function RecipesHomeScreen() {
           <>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Plats Principaux</Text>
-              <Text style={styles.sectionSubtitle}>{mainRecipes.length} plat{mainRecipes.length > 1 ? 's' : ''} principal{mainRecipes.length > 1 ? 'x' : ''}</Text>
               {loadingMain ? <View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.primary} /></View>
                 : mainRecipes.length === 0 ? <View style={styles.emptyList}><Text style={styles.emptyListText}>Aucune recette trouvée</Text></View>
                 : mainRecipes.map(recipe => renderRecipeCard(recipe))}
             </View>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Collations</Text>
-              <Text style={styles.sectionSubtitle}>{snackRecipes.length} collation{snackRecipes.length > 1 ? 's' : ''}</Text>
               {loadingSnacks ? <View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.primary} /></View>
                 : snackRecipes.length === 0 ? <View style={styles.emptyList}><Text style={styles.emptyListText}>Aucune recette trouvée</Text></View>
                 : snackRecipes.map(recipe => renderRecipeCard(recipe))}
@@ -344,7 +341,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   hero: { backgroundColor: colors.darkBeige, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg, borderBottomLeftRadius: borderRadius.xl, borderBottomRightRadius: borderRadius.xl },
   greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
-  greeting: { ...typography.h1, color: colors.text },
+  greeting: { ...typography.h1, color: colors.text, fontFamily: 'InstrumentSerif_400Regular', fontSize: 48 },
   subtitle: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.sm },
   tabBar: { flexDirection: 'row', paddingTop: spacing.xs, gap: spacing.sm, alignItems: 'center' },
   tab: { flex: 1, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: borderRadius.full, backgroundColor: 'transparent', alignItems: 'center', borderWidth: 2, borderColor: colors.primary },
@@ -365,7 +362,7 @@ const styles = StyleSheet.create({
   section: { marginBottom: spacing.xl },
   sectionTitle: { ...typography.h2, fontSize: 22, fontWeight: '600', color: '#000000', paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
   sectionSubtitle: { ...typography.caption, color: '#000000', paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, marginBottom: spacing.sm },
-  recipeList: { paddingBottom: 120 },
+  recipeList: { paddingBottom: 120, paddingTop: spacing.lg },
   emptyList: { paddingVertical: spacing.xl, alignItems: 'center', gap: spacing.md },
   emptyListText: { ...typography.body, color: colors.textSecondary },
   recipeCard: { backgroundColor: colors.primary, borderRadius: borderRadius.lg, overflow: 'hidden', marginBottom: spacing.md, marginHorizontal: spacing.lg },
@@ -377,7 +374,7 @@ const styles = StyleSheet.create({
   priceBadgeOverlay: { position: 'absolute', top: 12, right: 12, backgroundColor: colors.surface, borderRadius: borderRadius.md, paddingHorizontal: spacing.sm, paddingVertical: 6 },
   priceBadgeText: { ...typography.small, fontSize: 11, fontWeight: '700', color: colors.primary },
   recipeInfo: { padding: spacing.md, justifyContent: 'space-between', minHeight: 100 },
-  recipeTitle: { fontSize: 18, fontWeight: '400', lineHeight: 22, color: colors.surface, marginBottom: spacing.sm },
+  recipeTitle: { fontSize: 22, fontWeight: '400', lineHeight: 26, color: colors.surface, marginBottom: spacing.sm, fontFamily: 'InstrumentSerif_400Regular' },
   recipeTags: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap', marginBottom: spacing.sm },
   tag: { backgroundColor: colors.surface, borderRadius: borderRadius.full, paddingHorizontal: spacing.sm, paddingVertical: 4 },
   tagText: { ...typography.small, color: colors.primary },
@@ -397,19 +394,19 @@ const styles = StyleSheet.create({
   modalTitle: { ...typography.h2, color: colors.text },
   applyButton: { margin: spacing.lg, backgroundColor: colors.primary, borderRadius: borderRadius.full, paddingVertical: spacing.md, alignItems: 'center' },
   applyButtonText: { ...typography.bodyBold, color: '#fff', fontSize: 16 },
-  lockedContent: { paddingHorizontal: spacing.lg, paddingVertical: spacing.lg },
-  lockedContainer: { alignItems: 'center', paddingVertical: spacing.xl, paddingBottom: 100 },
-  lockedTitle: { fontSize: 32, fontWeight: '400', color: colors.text, textAlign: 'center', marginTop: spacing.xs, marginBottom: spacing.sm, ...Platform.select({ ios: { fontFamily: 'Georgia' }, android: { fontFamily: 'serif' }, default: { fontFamily: 'Georgia' } }) },
-  lockedText: { ...typography.body, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.xl, lineHeight: 24 },
-  pricingCard: { width: '100%', backgroundColor: colors.surface, borderRadius: borderRadius.xl, padding: spacing.xl, marginBottom: spacing.lg, alignItems: 'center', borderWidth: 2, borderColor: colors.border, position: 'relative' },
+  lockedContent: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  lockedContainer: { alignItems: 'center', paddingVertical: spacing.sm, paddingBottom: 20 },
+  lockedTitle: { fontSize: 28, fontWeight: '800', color: colors.text, textAlign: 'center', marginTop: spacing.xs, marginBottom: spacing.sm, fontFamily: 'OpenSans_600SemiBold', letterSpacing: -0.8 },
+  lockedText: { ...typography.body, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.sm, lineHeight: 20, fontSize: 13 },
+  pricingCard: { width: '100%', backgroundColor: colors.surface, borderRadius: borderRadius.xl, padding: spacing.md, marginBottom: spacing.sm, alignItems: 'center', borderWidth: 2, borderColor: colors.border, position: 'relative' },
   pricingCardPopular: { borderColor: colors.accent, borderWidth: 3 },
   popularBadge: { position: 'absolute', top: -12, right: spacing.lg, backgroundColor: colors.accent, borderRadius: borderRadius.full, paddingVertical: 4, paddingHorizontal: spacing.md },
   popularBadgeText: { fontSize: 12, fontWeight: '700', color: colors.surface },
-  pricingPeriod: { fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: spacing.sm },
-  pricingAmount: { fontSize: 36, fontWeight: '400', color: colors.text, marginBottom: spacing.xs, ...Platform.select({ ios: { fontFamily: 'Georgia' }, android: { fontFamily: 'serif' }, default: { fontFamily: 'Georgia' } }) },
+  pricingPeriod: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 2 },
+  pricingAmount: { fontSize: 26, fontWeight: '400', color: colors.text, marginBottom: spacing.xs, ...Platform.select({ ios: { fontFamily: 'Georgia' }, android: { fontFamily: 'serif' }, default: { fontFamily: 'Georgia' } }) },
   pricingTrial: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.md },
-  pricingButton: { backgroundColor: colors.primary, borderRadius: borderRadius.full, paddingVertical: spacing.md, paddingHorizontal: spacing.xl },
-  pricingButtonText: { fontSize: 14, fontWeight: '600', color: colors.surface },
+  pricingButton: { backgroundColor: '#ebcdf1', borderRadius: borderRadius.full, paddingVertical: spacing.md, paddingHorizontal: spacing.xl },
+  pricingButtonText: { fontSize: 14, fontWeight: '600', color: colors.text },
   freeAccessInfo: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, marginTop: spacing.md },
   freeAccessText: { flex: 1, fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
 });

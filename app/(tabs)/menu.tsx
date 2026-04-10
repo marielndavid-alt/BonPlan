@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useFonts, InstrumentSerif_400Regular } from '@expo-google-fonts/instrument-serif';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows, storeInfo } from '@/constants/theme';
 import { useWeeklyMenu } from '@/hooks/useWeeklyMenu';
@@ -130,8 +131,7 @@ export default function WeeklyMenuScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}>
-          <Text style={styles.greeting}>Menu hebdomadaire,</Text>
-          <Text style={styles.subtitle}>Planifiez vos repas de la semaine</Text>
+          <Text style={styles.greeting}>Menu hebdomadaire</Text>
         </View>
 
         <ScrollView 
@@ -140,10 +140,9 @@ export default function WeeklyMenuScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.lockedContainer}>
-            <MaterialIcons name="menu-book" size={80} color={colors.border} />
             <Text style={styles.lockedTitle}>L'abonnement te fait économiser plus</Text>
             <Text style={styles.lockedText}>
-              Planifiez vos menus hebdomadaires et économisez en moyenne de 1250$ par année!
+              Accède à toutes les recettes, compare les prix et économise en moyenne 1 250$ par année!
             </Text>
 
             {/* Pricing Cards */}
@@ -213,7 +212,7 @@ export default function WeeklyMenuScreen() {
       <View style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}>
         <View style={styles.heroTop}>
           <View style={styles.heroTextContainer}>
-            <Text style={styles.greeting}>Menu hebdomadaire,</Text>
+            <Text style={styles.greeting}>Menu hebdomadaire</Text>
             <Text style={styles.subtitle}>
               {menuItems.length === 0
                 ? 'Planifiez vos repas de la semaine'
@@ -255,7 +254,6 @@ export default function WeeklyMenuScreen() {
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         {menuItems.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <MaterialIcons name="menu-book" size={80} color={colors.border} />
             <Text style={styles.emptyTitle}>Menu vide</Text>
             <Text style={styles.emptyText}>
               Parcourez les recettes et ajoutez-les à votre menu hebdomadaire
@@ -273,10 +271,11 @@ export default function WeeklyMenuScreen() {
             {(() => {
               const total = menuItems.reduce((sum, menuItem) => {
                 const recipe = fullRecipes.find(r => r.id === menuItem.recipe_id);
-                if (!recipe || !recipe.totalPrice) return sum;
+                if (!recipe) return sum;
                 const ratio = recipe.servings > 0 ? (menuItem.servings || recipe.servings) / recipe.servings : 1;
                 const selectedStore = menuItem.store_code || recipe.bestStore;
-                const basePrice = storePrices[recipe.id]?.[selectedStore] ?? recipe.totalPrice;
+                const basePrice = storePrices[recipe.id]?.[selectedStore] ?? recipe.totalPrice ?? 0;
+                console.log('[cost] recipe:', recipe.title, 'basePrice:', basePrice, 'ratio:', ratio, 'totalPrice:', recipe.totalPrice, 'storePrices:', storePrices[recipe.id]);
                 return sum + (basePrice * ratio);
               }, 0);
               return (
@@ -287,19 +286,33 @@ export default function WeeklyMenuScreen() {
               );
             })()}
 
-            {/* Recipe Cards - Groupés par catégorie */}
+            {/* Recipe Cards - Groupés par jour de la semaine */}
             {(() => {
-              const mainDishes = fullRecipes.filter(r => r.category === 'main');
-              const snacks = fullRecipes.filter(r => r.category === 'snack');
+              const daysOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche', undefined];
+              const recipesByDay: Record<string, typeof fullRecipes> = {};
+              
+              fullRecipes.forEach(recipe => {
+                const menuItem = menuItems.find(item => item.recipe_id === recipe.id);
+                const day = menuItem?.day || 'Sans jour';
+                if (!recipesByDay[day]) recipesByDay[day] = [];
+                recipesByDay[day].push(recipe);
+              });
+
+              const sortedDays = Object.keys(recipesByDay).sort((a, b) => {
+                const ai = daysOrder.indexOf(a as any);
+                const bi = daysOrder.indexOf(b as any);
+                if (a === 'Sans jour') return 1;
+                if (b === 'Sans jour') return -1;
+                return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+              });
               
               return (
                 <>
-                  {/* Plats principaux */}
-                  {mainDishes.length > 0 && (
-                    <View style={styles.categorySection}>
-                      <Text style={styles.categoryTitle}>Plats principaux</Text>
+                  {sortedDays.map(day => (
+                    <View key={day} style={styles.categorySection}>
+                      
                       <View style={styles.recipeList}>
-                        {mainDishes.map((recipe) => {
+                        {recipesByDay[day].map((recipe) => {
                           const menuItem = menuItems.find(item => item.recipe_id === recipe.id);
                           return (
                           <Pressable
@@ -403,118 +416,7 @@ export default function WeeklyMenuScreen() {
                         );})}
                       </View>
                     </View>
-                  )}
-                  
-                  {/* Collations */}
-                  {snacks.length > 0 && (
-                    <View style={styles.categorySection}>
-                      <Text style={styles.categoryTitle}>Collations</Text>
-                      <View style={styles.recipeList}>
-                        {snacks.map((recipe) => {
-                          const menuItem = menuItems.find(item => item.recipe_id === recipe.id);
-                          return (
-                          <Pressable
-                            key={recipe.id}
-                            style={styles.recipeCard}
-                            onPress={() => router.push(`/recipe/${recipe.id}`)}
-                          >
-                            {/* Recipe Image */}
-                            <View style={styles.imageContainer}>
-                              {recipe.image && recipe.image.startsWith('http') ? (
-                                <Image 
-                                  source={{ uri: recipe.image }} 
-                                  style={styles.recipeImage}
-                                  resizeMode="cover"
-                                />
-                              ) : (
-                                <View style={[styles.recipeImage, styles.imagePlaceholder]} />
-                              )}
-                              
-                              {/* Remove Button */}
-                              <Pressable
-                                onPress={(e) => {
-                                  e.stopPropagation();
-                                  if (menuItem) {
-                                    removeMenuItem(menuItem.id);
-                                  }
-                                }}
-                                style={styles.removeButtonOverlay}
-                                hitSlop={12}
-                              >
-                                <MaterialIcons name="close" size={20} color={colors.surface} />
-                              </Pressable>
-                            </View>
-                            
-                            {/* Recipe Info */}
-                            <View style={styles.cardContent}>
-                              <Text style={styles.cardTitle} numberOfLines={2}>{recipe.title}</Text>
-                              
-                              {/* Day Selector */}
-                              {menuItem && (
-                                <Pressable
-                                  onPress={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenDayPicker(menuItem.id);
-                                  }}
-                                  style={({ pressed }) => [
-                                    styles.daySelector,
-                                    pressed && { opacity: 0.7 },
-                                  ]}
-                                >
-                                  <MaterialIcons name="event" size={16} color={colors.primary} />
-                                  <Text style={styles.daySelectorText}>
-                                    {menuItem.day || 'Choisir un jour'}
-                                  </Text>
-                                  <MaterialIcons name="chevron-right" size={16} color={colors.textSecondary} />
-                                </Pressable>
-                              )}
-                              
-                              {/* Meta Info */}
-                              <View style={styles.cardMeta}>
-                                <View style={styles.metaItem}>
-                                  <MaterialIcons name="schedule" size={16} color={colors.textSecondary} />
-                                  <Text style={styles.metaText}>{recipe.prepTime} min</Text>
-                                </View>
-
-                              </View>
-                              
-                              {/* Portions selector */}
-                              <View style={styles.portionsRow}>
-                                <Text style={styles.portionsLabel}>Portions :</Text>
-                                <Pressable onPress={(e) => { e.stopPropagation(); const s = Math.max(1, (menuItem?.servings || recipe.servings) - 1); updateServings(menuItem!.id, s); }} style={styles.portionBtn}>
-                                  <Text style={styles.portionBtnText}>-</Text>
-                                </Pressable>
-                                <Text style={styles.portionsCount}>{menuItem?.servings || recipe.servings}</Text>
-                                <Pressable onPress={(e) => { e.stopPropagation(); const s = (menuItem?.servings || recipe.servings) + 1; updateServings(menuItem!.id, s); }} style={styles.portionBtn}>
-                                  <Text style={styles.portionBtnText}>+</Text>
-                                </Pressable>
-                              </View>
-
-
-
-                              {/* Price Badge */}
-                              {(() => {
-                                const selectedStore = menuItems.find(m => m.id === menuItem?.id)?.store_code || recipe.bestStore;
-                                const ratio = recipe.servings > 0 ? (menuItem?.servings || recipe.servings) / recipe.servings : 1;
-                                const basePrice = storePrices[recipe.id]?.[selectedStore] ?? recipe.totalPrice;
-                                console.log('[menu] store:', selectedStore, 'storePrices:', JSON.stringify(storePrices[recipe.id]), 'basePrice:', basePrice);
-                                const price = basePrice * ratio;
-                                return (
-                                  <View style={styles.priceBadge}>
-                                    <View style={styles.priceRow}>
-                                      <View style={[styles.storeDot, { backgroundColor: storeInfo[selectedStore]?.color || colors.primary }]} />
-                                      <Text style={styles.storeText}>{storeInfo[selectedStore]?.name || selectedStore}</Text>
-                                    </View>
-                                    <Text style={styles.priceText}>{price > 0 ? price.toFixed(2) + '$' : 'N/A'}</Text>
-                                  </View>
-                                );
-                              })()}
-                            </View>
-                          </Pressable>
-                        );})}
-                      </View>
-                    </View>
-                  )}
+                  ))}
                 </>
               );
             })()}
@@ -584,9 +486,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   hero: {
-    backgroundColor: colors.darkBeige, // Beige foncé #f1e7dd
+    backgroundColor: colors.darkBeige,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.sm,
     borderBottomLeftRadius: borderRadius.xl,
     borderBottomRightRadius: borderRadius.xl,
   },
@@ -613,6 +515,8 @@ const styles = StyleSheet.create({
     ...typography.h1,
     color: colors.text,
     marginBottom: spacing.xs,
+    fontFamily: 'InstrumentSerif_400Regular',
+    fontSize: 48,
   },
   subtitle: {
     ...typography.body,
@@ -839,21 +743,18 @@ const styles = StyleSheet.create({
   },
   lockedContainer: {
     alignItems: 'center',
-    paddingVertical: spacing.xl,
-    paddingBottom: 150,
+    paddingVertical: spacing.sm,
+    paddingBottom: 20,
   },
   lockedTitle: {
-    fontSize: 32,
-    fontWeight: '400',
+    fontSize: 28,
+    fontWeight: '800',
     color: colors.text,
     textAlign: 'center',
     marginTop: spacing.xs,
     marginBottom: spacing.sm,
-    ...Platform.select({
-      ios: { fontFamily: 'Georgia' },
-      android: { fontFamily: 'serif' },
-      default: { fontFamily: 'Georgia' },
-    }),
+    fontFamily: 'OpenSans_600SemiBold',
+    letterSpacing: -0.8,
   },
   lockedText: {
     ...typography.body,
@@ -866,8 +767,8 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    marginBottom: spacing.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: colors.border,
@@ -914,7 +815,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   pricingButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#ebcdf1',
     borderRadius: borderRadius.full,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,

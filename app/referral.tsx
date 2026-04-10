@@ -143,7 +143,7 @@ export default function ReferralScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  title: { ...typography.h2, color: colors.text },
+  title: { fontSize: 36, fontWeight: '400', color: colors.text, fontFamily: 'InstrumentSerif_400Regular', textAlign: 'center' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { flex: 1, paddingHorizontal: spacing.lg, gap: spacing.md },
   heroCard: { backgroundColor: colors.darkBeige, borderRadius: borderRadius.xl, padding: spacing.xl, alignItems: 'center' },

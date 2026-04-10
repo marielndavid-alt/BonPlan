@@ -50,13 +50,7 @@ export default function RootScreen() {
 
   if (checking || authLoading) {
     return (
-      <View style={styles.container}>
-        <Image
-          source={require('../assets/images/Icon accueil-rouge.gif')}
-          style={styles.image}
-          resizeMode="cover"
-        />
-      </View>
+      <View style={{ flex: 1, backgroundColor: '#E8402A' }} />
     );
   }
 

@@ -86,7 +86,6 @@ export default function SubscriptionScreen() {
         </Pressable>
         <View style={styles.headerTextContainer}>
           <Text style={styles.title}>Abonnement</Text>
-          <Text style={styles.subtitle}>Accédez à toutes les fonctionnalités</Text>
         </View>
       </View>
 
@@ -195,7 +194,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   backButton: { padding: spacing.xs },
   headerTextContainer: { flex: 1 },
-  title: { ...typography.h2, color: colors.text },
+  title: { fontSize: 36, fontWeight: '400', color: colors.text, fontFamily: 'InstrumentSerif_400Regular', textAlign: 'center' },
   subtitle: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.xs },
   scrollView: { flex: 1 },
   content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },

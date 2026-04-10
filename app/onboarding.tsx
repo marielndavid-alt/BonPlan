@@ -15,6 +15,8 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFonts, InstrumentSerif_400Regular, InstrumentSerif_400Regular_Italic } from '@expo-google-fonts/instrument-serif';
+import { OpenSans_400Regular, OpenSans_500Medium } from '@expo-google-fonts/open-sans';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius } from '@/constants/theme';
 import { onboardingService, OnboardingData } from '@/services/onboardingService';
@@ -44,6 +46,12 @@ const COMMON_INGREDIENTS = [
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const [fontsLoaded] = useFonts({
+    InstrumentSerif_400Regular,
+    InstrumentSerif_400Regular_Italic,
+    OpenSans_400Regular,
+    OpenSans_500Medium,
+  });
   const { showAlert } = useAlert();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -188,7 +196,9 @@ await onboardingService.savePreferences({
 });
     
     setLoading(false);
-    router.replace('/(tabs)');
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    await AsyncStorage.removeItem('needs_onboarding');
+    router.replace('/(tabs)/circulaire');
   };
 
   const handleSubscription = async (planType: 'monthly' | 'yearly') => {
@@ -546,13 +556,13 @@ await onboardingService.savePreferences({
               </Pressable>
 
               <Pressable
-                onPress={() => toggleDiet('vegan')}
+                onPress={() => toggleDiet('peanut_free')}
                 style={styles.dietItem}
               >
-                <View style={[styles.dietIcon, selectedDiet.includes('vegan') && styles.dietIconActive]}>
-                  <Text style={styles.dietEmoji}>🌱</Text>
+                <View style={[styles.dietIcon, selectedDiet.includes('peanut_free') && styles.dietIconActive]}>
+                  <Text style={styles.dietEmoji}>🥜</Text>
                 </View>
-                <Text style={styles.dietLabel}>Végétalien (vegan)</Text>
+                <Text style={styles.dietLabel}>Sans arachides</Text>
               </Pressable>
 
               <Pressable
@@ -698,40 +708,33 @@ await onboardingService.savePreferences({
         );
 
       case 9:
-        return (
-          <View style={styles.stepContainer}>
-            <Image
-              style={styles.welcomeImage}
-              resizeMode="cover"
-            />
-            <Text style={styles.title}>Bienvenue à bord!</Text>
-            <Text style={styles.subtitle}>
-              On s'occupe de tout et on vous tient informé juste quand il faut. Acceptes-tu que nous t'envoyions des notifications?
-            </Text>
-            
-            <Pressable 
-              onPress={() => completeOnboarding(true)}
-              style={styles.notificationYesButton}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.surface} />
-              ) : (
-                <Text style={styles.notificationYesButtonText}>Oui, bien sûre!</Text>
-              )}
-            </Pressable>
-            
-            <Pressable 
-              onPress={() => completeOnboarding(false)} 
-              style={styles.notificationNoButton}
-              disabled={loading}
-            >
-              <Text style={styles.notificationNoButtonText}>Non merci</Text>
-            </Pressable>
-          </View>
-        );
-
-      default:
+  return (
+    <View style={{ flex: 1, alignItems: 'center' }}>
+      <Image
+        source={require('../assets/images/legumes.png')}
+        style={{ width: '120%', height: 600, marginBottom: -250, marginHorizontal: -100 }}
+        resizeMode="fit"
+      />
+      <Text style={styles.title}>Bienvenue à bord!</Text>
+      <Text style={styles.subtitle}>
+        On s'occupe de tout et on vous tient informé juste quand il faut. Acceptes-tu que nous t'envoyions des notifications?
+      </Text>
+      <Pressable
+        onPress={() => completeOnboarding(true)}
+        style={styles.notificationYesButton}
+        disabled={loading}
+      >
+        {loading ? <ActivityIndicator size="small" color={colors.surface} /> : <Text style={styles.notificationYesButtonText}>Oui, bien sûre!</Text>}
+      </Pressable>
+      <Pressable
+        onPress={() => completeOnboarding(false)}
+        style={styles.notificationNoButton}
+        disabled={loading}
+      >
+        <Text style={styles.notificationNoButtonText}>Non merci</Text>
+      </Pressable>
+    </View>
+  );
         return null;
     }
   };
@@ -925,11 +928,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     marginBottom: spacing.md,
-    ...Platform.select({
-      ios: { fontFamily: 'Georgia' },
-      android: { fontFamily: 'serif' },
-      default: { fontFamily: 'Georgia' },
-    }),
+    fontFamily: 'InstrumentSerif_400Regular',
   },
   subtitle: {
     fontSize: 16,
@@ -938,9 +937,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.xxl,
     lineHeight: 24,
+    fontFamily: 'OpenSans_400Regular',
     ...Platform.select({
-      ios: { fontFamily: 'System' },
-      android: { fontFamily: 'sans-serif' },
+      ios: {},
+      android: {},
       default: { fontFamily: 'System' },
     }),
   },
@@ -1326,11 +1326,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   welcomeImage: {
-    width: 300,
-    height: 300,
-    borderRadius: borderRadius.xl,
-    marginBottom: spacing.xl,
-  },
+  width: '100%',
+  height: 350,
+  marginBottom: spacing.md,
+},
   notificationYesButton: {
     backgroundColor: colors.accent,
     borderRadius: borderRadius.full,

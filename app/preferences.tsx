@@ -287,7 +287,6 @@ export default function PreferencesScreen() {
         </Pressable>
         <View style={styles.headerTextContainer}>
           <Text style={styles.title}>Mes Préférences</Text>
-          <Text style={styles.subtitle}>Gérez vos préférences alimentaires</Text>
         </View>
       </View>
 
@@ -570,9 +569,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 36,
+    fontWeight: '400',
     color: colors.text,
+    fontFamily: 'InstrumentSerif_400Regular',
+    textAlign: 'center',
   },
   subtitle: {
     ...typography.body,

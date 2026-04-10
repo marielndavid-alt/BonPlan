@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   overlayButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' },
   infoSection: { padding: spacing.xl, backgroundColor: colors.beige },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md },
-  recipeTitle: { fontSize: 40, fontFamily: 'serif', color: colors.text, flex: 1, paddingRight: spacing.md, lineHeight: 48 },
+  recipeTitle: { fontSize: 40, fontFamily: 'InstrumentSerif_400Regular', color: colors.text, flex: 1, paddingRight: spacing.md, lineHeight: 42 },
   likeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   likeCount: { fontSize: 18, fontWeight: '600', color: colors.text },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
