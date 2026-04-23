@@ -1,51 +1,50 @@
 
 async function applyWeeklyRotation(recipes: Recipe[], filters: RecipeFilters): Promise<Recipe[]> {
   try {
-    // Calculer le début de la semaine courante (lundi)
-    const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const weekStart = new Date(now.setDate(diff));
-    weekStart.setHours(0, 0, 0, 0);
-    const weekStartStr = weekStart.toISOString().split('T')[0];
+    // Source of truth: Postgres function current_week_start() returns the Monday
+    // of the current week in America/Toronto. Mobile and web share this RPC so
+    // a client in a different timezone never lands on the "wrong" week.
+    const { data: weekStartStr, error: weekErr } = await supabase.rpc('current_week_start');
+    if (weekErr || !weekStartStr) throw weekErr ?? new Error('current_week_start returned null');
 
-    // Vérifier si on a déjà une sélection pour cette semaine
+    const weekStart = new Date(`${weekStartStr}T00:00:00Z`);
+
     const { data: thisWeek } = await supabase
       .from('recipe_weekly_schedule')
       .select('recipe_id')
       .eq('week_start', weekStartStr);
 
-    // Si on a déjà des recettes pour cette semaine, les retourner
     if (thisWeek && thisWeek.length > 0) {
       const thisWeekIds = new Set(thisWeek.map((r: any) => r.recipe_id));
       const scheduled = recipes.filter(r => thisWeekIds.has(r.id));
       if (scheduled.length > 0) return scheduled;
     }
 
-    // Récupérer les recettes proposées dans les 4 dernières semaines
     const fourWeeksAgo = new Date(weekStart);
-    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+    fourWeeksAgo.setUTCDate(fourWeeksAgo.getUTCDate() - 28);
+    const fourWeeksAgoStr = fourWeeksAgo.toISOString().split('T')[0];
+
     const { data: recentSchedule } = await supabase
       .from('recipe_weekly_schedule')
       .select('recipe_id')
-      .gte('week_start', fourWeeksAgo.toISOString().split('T')[0]);
+      .gte('week_start', fourWeeksAgoStr);
 
     const recentIds = new Set((recentSchedule || []).map((r: any) => r.recipe_id));
 
-    // Filtrer les recettes non proposées récemment
     let available = recipes.filter(r => !recentIds.has(r.id));
-
-    // Si pas assez de recettes disponibles, prendre toutes les recettes
     if (available.length < 4) available = recipes;
 
-    // Sélectionner aléatoirement 8 recettes
     const shuffled = available.sort(() => Math.random() - 0.5).slice(0, 8);
 
-    // Enregistrer la sélection pour cette semaine
     if (shuffled.length > 0) {
-      await supabase.from('recipe_weekly_schedule').insert(
-        shuffled.map(r => ({ recipe_id: r.id, week_start: weekStartStr }))
-      );
+      // onConflict + ignoreDuplicates makes repeated calls this week idempotent.
+      // Backed by the (recipe_id, week_start) unique index from the SQL migration.
+      await supabase
+        .from('recipe_weekly_schedule')
+        .upsert(
+          shuffled.map(r => ({ recipe_id: r.id, week_start: weekStartStr })),
+          { onConflict: 'recipe_id,week_start', ignoreDuplicates: true },
+        );
     }
 
     return shuffled;
