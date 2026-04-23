@@ -16,3 +16,11 @@ ios/Pods 2
 # Environment
 .env
 eas.json
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# macOS / iCloud duplicate artifacts
+* 2.*
+* 3.*
