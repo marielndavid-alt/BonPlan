@@ -24,3 +24,7 @@ eas.json
 # macOS / iCloud duplicate artifacts
 * 2.*
 * 3.*
+
+# Private notes (ne jamais commit)
+CLIENT_CONTEXT.md
+NOTES_*.md
