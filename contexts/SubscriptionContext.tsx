@@ -81,7 +81,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           .from('subscriptions')
           .select('status, trial_end, current_period_end')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
         const now = new Date();
         if (sub) {
           if (sub.status === 'active') {

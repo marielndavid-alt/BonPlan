@@ -36,7 +36,7 @@ export const subscriptionService = {
   createCheckoutSession,
   createCustomerPortalSession,
   async getSubscriptionStatus(userId: string) {
-    const { data } = await supabase.from('subscriptions').select('*').eq('user_id', userId).single();
+    const { data } = await supabase.from('subscriptions').select('*').eq('user_id', userId).maybeSingle();
     return data;
   },
 };
