@@ -225,7 +225,27 @@ export default function RecipesHomeScreen() {
     );
   };
 
-  const handleSubscription = () => router.push('/subscription');
+  const handleSubscription = async (plan: 'monthly' | 'yearly') => {
+    if (subscriptionLoading) return;
+    setSubscriptionLoading(true);
+    try {
+      const { revenueCatService } = await import('@/services/revenueCatService');
+      if (user) await revenueCatService.setUserId(user.id);
+      const { success, error } = await revenueCatService.purchasePlan(plan);
+      if (success) {
+        showAlert('Succès', 'Votre essai gratuit est maintenant actif !');
+      } else if (error && !error.userCancelled) {
+        showAlert(
+          'Erreur',
+          error?.noOfferings
+            ? 'Aucun forfait disponible pour le moment. Réessayez plus tard.'
+            : (error?.message || "Impossible de démarrer l'essai. Veuillez réessayer.")
+        );
+      }
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
 
   const hasAccess = isSubscribed || isTrial;
 

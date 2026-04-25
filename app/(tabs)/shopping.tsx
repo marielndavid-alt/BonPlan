@@ -11,7 +11,7 @@ import { shoppingStorePreferencesService } from '@/services/shoppingStorePrefere
 import { ShoppingListItem } from '@/components/feature/ShoppingListItem';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useAlert } from '@/template';
+import { useAlert, useAuth } from '@/template';
 import { productSelectionService, ProductWithPrice } from '@/services/productSelectionService';
 import { ShoppingListItem as ShoppingListItemType, ShoppingListCategory } from '@/types';
 
@@ -22,6 +22,7 @@ export default function ShoppingScreen() {
   const router = useRouter();
   const { isSubscribed, isTrial } = useSubscription();
   const { showAlert } = useAlert();
+  const { user } = useAuth();
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const { items, totalPrice, uncheckedCount, toggleCheck, removeItem, clearChecked, clearAll, addItem, updateItem, refreshPrices, bestStoreForList } = useShoppingList();
   const hasUncheckedItems = uncheckedCount > 0;
@@ -284,7 +285,27 @@ export default function ShoppingScreen() {
     if (!result.canceled && result.assets[0]) setEditPhoto(result.assets[0].uri);
   };
 
-  const handleSubscription = () => router.push('/subscription');
+  const handleSubscription = async (plan: 'monthly' | 'yearly') => {
+    if (subscriptionLoading) return;
+    setSubscriptionLoading(true);
+    try {
+      const { revenueCatService } = await import('@/services/revenueCatService');
+      if (user) await revenueCatService.setUserId(user.id);
+      const { success, error } = await revenueCatService.purchasePlan(plan);
+      if (success) {
+        showAlert('Succès', 'Votre essai gratuit est maintenant actif !');
+      } else if (error && !error.userCancelled) {
+        showAlert(
+          'Erreur',
+          error?.noOfferings
+            ? 'Aucun forfait disponible pour le moment. Réessayez plus tard.'
+            : (error?.message || "Impossible de démarrer l'essai. Veuillez réessayer.")
+        );
+      }
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
 
   if (!hasAccess) {
     return (

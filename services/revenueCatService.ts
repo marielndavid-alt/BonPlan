@@ -32,6 +32,26 @@ export const revenueCatService = {
     }
   },
 
+  // Trouve automatiquement le package selon le plan (monthly/yearly) et déclenche l'achat
+  async purchasePlan(plan: 'monthly' | 'yearly') {
+    try {
+      const offerings = await Purchases.getOfferings();
+      const current = offerings.current;
+      if (!current?.availablePackages?.length) {
+        return { success: false, error: { message: 'Aucun forfait disponible pour le moment. Réessayez plus tard.', noOfferings: true } };
+      }
+      const pkg = current.availablePackages.find(p => {
+        const id = p.identifier.toLowerCase();
+        if (plan === 'yearly') return id.includes('annual') || id.includes('yearly') || id === '$rc_annual';
+        return id.includes('monthly') || id === '$rc_monthly';
+      }) || current.availablePackages[0];
+      return await this.purchasePackage(pkg);
+    } catch (e: any) {
+      console.error('[RevenueCat] purchasePlan:', e);
+      return { success: false, error: e };
+    }
+  },
+
   async restorePurchases() {
     try {
       const customerInfo = await Purchases.restorePurchases();

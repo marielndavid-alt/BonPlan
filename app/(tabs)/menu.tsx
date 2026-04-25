@@ -22,7 +22,7 @@ import { DayOfWeek, weeklyMenuService } from '@/services/weeklyMenuService';
 import { optimizedRecipeService } from '@/services/optimizedRecipeService';
 import { Recipe } from '@/types';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useAlert } from '@/template';
+import { useAlert, useAuth } from '@/template';
 
 export default function WeeklyMenuScreen() {
   const insets = useSafeAreaInsets();
@@ -30,6 +30,7 @@ export default function WeeklyMenuScreen() {
   const { menuItems, removeMenuItem, clearMenu, updateDay, updateServings, updateStore, loading } = useWeeklyMenu();
   const { isSubscribed, isTrial } = useSubscription();
   const { showAlert } = useAlert();
+  const { user } = useAuth();
   const [fullRecipes, setFullRecipes] = useState<Recipe[]>([]);
   const [loadingRecipes, setLoadingRecipes] = useState(false);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
@@ -80,7 +81,27 @@ export default function WeeklyMenuScreen() {
     loadMenuRecipes();
   }, [menuItems]);
 
-  const handleSubscription = () => router.push('/subscription');
+  const handleSubscription = async (plan: 'monthly' | 'yearly') => {
+    if (subscriptionLoading) return;
+    setSubscriptionLoading(true);
+    try {
+      const { revenueCatService } = await import('@/services/revenueCatService');
+      if (user) await revenueCatService.setUserId(user.id);
+      const { success, error } = await revenueCatService.purchasePlan(plan);
+      if (success) {
+        showAlert('Succès', 'Votre essai gratuit est maintenant actif !');
+      } else if (error && !error.userCancelled) {
+        showAlert(
+          'Erreur',
+          error?.noOfferings
+            ? 'Aucun forfait disponible pour le moment. Réessayez plus tard.'
+            : (error?.message || "Impossible de démarrer l'essai. Veuillez réessayer.")
+        );
+      }
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
 
   const handleClearMenu = () => {
     showAlert(
