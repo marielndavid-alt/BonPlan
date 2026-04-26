@@ -11,6 +11,57 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const FC_KEY = Deno.env.get("FIRECRAWL_API_KEY")!;
 const CRON_SECRET = Deno.env.get("CRON_SECRET") || "";
 
+const STORE_REFERER: Record<string, string> = {
+  metro: "https://www.metro.ca/",
+  superc: "https://www.superc.ca/",
+  maxi: "https://www.maxi.ca/",
+  loblaws: "https://www.loblaws.ca/",
+  iga: "https://www.iga.net/",
+  walmart: "https://www.walmart.ca/",
+  avril: "https://www.avril.ca/",
+  rachelle: "https://www.rachellebery.com/",
+};
+
+const STORAGE_PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/product-images/`;
+
+// Télécharge une image depuis le CDN d'épicerie et la met dans Supabase Storage.
+// Retourne l'URL publique de notre bucket, ou l'URL d'origine si échec.
+async function rehostImage(supabase: any, originalUrl: string, storeCode: string, productId: string): Promise<string> {
+  if (!originalUrl) return originalUrl;
+  // Déjà dans notre bucket → ne rien refaire
+  if (originalUrl.startsWith(STORAGE_PUBLIC_PREFIX)) return originalUrl;
+
+  try {
+    const referer = STORE_REFERER[storeCode] || "";
+    const res = await fetch(originalUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        ...(referer ? { Referer: referer } : {}),
+      },
+    });
+    if (!res.ok) return originalUrl;
+    const ct = res.headers.get("content-type") || "image/jpeg";
+    if (!ct.startsWith("image/")) return originalUrl;
+    const buf = new Uint8Array(await res.arrayBuffer());
+    if (!buf.length) return originalUrl;
+
+    let ext = ct.split("/")[1].split(";")[0].toLowerCase();
+    if (ext === "jpeg") ext = "jpg";
+    if (!["jpg", "png", "webp", "avif"].includes(ext)) ext = "jpg";
+
+    const path = `${storeCode}/${productId}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from("product-images")
+      .upload(path, buf, { contentType: ct, upsert: true });
+    if (upErr) return originalUrl;
+
+    return STORAGE_PUBLIC_PREFIX + path;
+  } catch {
+    return originalUrl;
+  }
+}
+
 const EXTRACTION_PROMPT = `Extrais tous les produits. Retourne JSON {produits:[{nom_produit,marque,prix_regulier,prix_promo,format_valeur,format_unite,url_produit,image_url}]}. prix_promo seulement si prix barré inférieur.`;
 
 serve(async (req) => {
@@ -25,11 +76,47 @@ serve(async (req) => {
   }
 
   const url = new URL(req.url);
-  const mode = url.searchParams.get("mode") || "promo"; // "promo" ou "pantry"
+  const mode = url.searchParams.get("mode") || "promo"; // "promo" | "pantry" | "backfill_images"
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
   const logs: string[] = [];
   const log = (msg: string) => { logs.push(msg); console.log(msg); };
+
+  // === Mode backfill: re-héberge les images CDN existantes dans Supabase Storage ===
+  if (mode === "backfill_images") {
+    const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+    log(`[backfill_images] Traitement de ${limit} produits…`);
+
+    const { data: rows, error } = await supabase
+      .from("prices")
+      .select("id, image_url, product_id, stores(code), products(image_url)")
+      .eq("is_on_sale", true)
+      .limit(limit);
+
+    if (error) {
+      return new Response(JSON.stringify({ success: false, error: error.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let processed = 0, updated = 0, skipped = 0;
+    for (const row of rows || []) {
+      const cdnUrl = (row as any).image_url || ((row as any).products?.image_url);
+      if (!cdnUrl) { skipped++; continue; }
+      if (cdnUrl.startsWith(STORAGE_PUBLIC_PREFIX)) { skipped++; continue; }
+      const storeCode = ((row as any).stores?.code) || "unknown";
+      const newUrl = await rehostImage(supabase, cdnUrl, storeCode, (row as any).product_id);
+      if (newUrl !== cdnUrl) {
+        await supabase.from("prices").update({ image_url: newUrl }).eq("id", (row as any).id);
+        updated++;
+      }
+      processed++;
+    }
+    log(`Terminé: ${processed} traités, ${updated} mis à jour, ${skipped} ignorés`);
+    return new Response(JSON.stringify({ success: true, logs, processed, updated, skipped }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   try {
     log(`[${new Date().toISOString()}] Démarrage scraping automatique — mode: ${mode}`);
@@ -231,11 +318,18 @@ async function saveProduct(supabase: any, produit: any, storeCode: string, store
     .limit(1);
 
   const isOnSale = !!(prixPromo && prixPromo < prixReg);
+
+  // Re-héberge l'image dans notre Storage avant de la sauvegarder
+  // (les CDN d'épiceries bloquent souvent le hotlinking direct)
+  const finalImg = produit.imgUrl
+    ? await rehostImage(supabase, produit.imgUrl, storeCode, productId)
+    : null;
+
   if (existing?.[0]?.id) {
-    await supabase.from("prices").update({ regular_price: prixReg, sale_price: isOnSale ? prixPromo : null, is_on_sale: isOnSale, last_updated: now, ...(produit.imgUrl ? { image_url: produit.imgUrl } : {}) }).eq("id", existing[0].id);
+    await supabase.from("prices").update({ regular_price: prixReg, sale_price: isOnSale ? prixPromo : null, is_on_sale: isOnSale, last_updated: now, ...(finalImg ? { image_url: finalImg } : {}) }).eq("id", existing[0].id);
   } else {
     const norm = prixReg && rawVal && rawUnit ? (TO_G[rawUnit] ? { val: prixReg / (rawVal * TO_G[rawUnit]), type: "g" } : TO_ML[rawUnit] ? { val: prixReg / (rawVal * TO_ML[rawUnit]), type: "ml" } : null) : null;
-    await supabase.from("prices").insert({ product_id: productId, store_id: storeId, regular_price: prixReg, sale_price: isOnSale ? prixPromo : null, is_on_sale: isOnSale, parsed_quantity: parsedQtyBase, quantity: produit.fmtVal && produit.fmtUnite ? `${produit.fmtVal} ${produit.fmtUnite}` : null, unit_price: norm?.val || null, unit_type: norm?.type || rawUnit || null, scrape_url: produit.urlProd || scrapeUrl, image_url: produit.imgUrl || null, last_updated: now });
+    await supabase.from("prices").insert({ product_id: productId, store_id: storeId, regular_price: prixReg, sale_price: isOnSale ? prixPromo : null, is_on_sale: isOnSale, parsed_quantity: parsedQtyBase, quantity: produit.fmtVal && produit.fmtUnite ? `${produit.fmtVal} ${produit.fmtUnite}` : null, unit_price: norm?.val || null, unit_type: norm?.type || rawUnit || null, scrape_url: produit.urlProd || scrapeUrl, image_url: finalImg, last_updated: now });
   }
 
   return true;
