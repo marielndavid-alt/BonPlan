@@ -47,6 +47,13 @@ export const revenueCatService = {
       }) || current.availablePackages[0];
       return await this.purchasePackage(pkg);
     } catch (e: any) {
+      // RevenueCat pas configuré (ex: env de dev sans clé, ou plateforme non supportée)
+      // → on affiche le même message "noOfferings" pour rester cohérent côté UX,
+      //   sans logger en console.error (sinon LogBox dev affiche un overlay rouge)
+      const msg = String(e?.message || '');
+      if (msg.includes('singleton') || msg.includes('configure') || msg.includes('Purchases')) {
+        return { success: false, error: { message: 'Aucun forfait disponible pour le moment. Réessayez plus tard.', noOfferings: true } };
+      }
       console.error('[RevenueCat] purchasePlan:', e);
       return { success: false, error: e };
     }
@@ -74,8 +81,12 @@ export const revenueCatService = {
   async setUserId(userId: string) {
     try {
       await Purchases.logIn(userId);
-    } catch (e) {
-      console.error('[RevenueCat] setUserId:', e);
+    } catch (e: any) {
+      // Silent si Purchases n'est pas configuré (env de dev / plateforme sans config)
+      const msg = String(e?.message || '');
+      if (!msg.includes('singleton') && !msg.includes('configure')) {
+        console.error('[RevenueCat] setUserId:', e);
+      }
     }
   },
 };
