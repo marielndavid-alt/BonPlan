@@ -5,7 +5,7 @@
     "slug": "onspace-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/BP.png",
+    "icon": "./assets/images/icon-square.png",
     "splash": {
       "image": "./assets/images/icon-square.png",
       "resizeMode": "cover",
@@ -16,21 +16,30 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "co.bonplan.app",
+      "buildNumber": "1",
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
         ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "BonPlan utilise la caméra pour photographier des produits à ajouter à votre liste d'épicerie.",
+        "NSPhotoLibraryUsageDescription": "BonPlan accède à vos photos pour vous permettre d'ajouter des images à votre liste d'épicerie."
       },
       "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.png",
+        "foregroundImage": "./assets/images/icon-square.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "co.bonplan.app"
+      "package": "co.bonplan.app",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -42,7 +51,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/BP.png",
+          "image": "./assets/images/icon-square.png",
           "resizeMode": "cover",
           "backgroundColor": "#000000"
         }
@@ -50,7 +59,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/logo.png",
+          "icon": "./assets/images/icon-square.png",
           "color": "#f44a33",
           "sounds": []
         }
