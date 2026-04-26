@@ -137,14 +137,22 @@ function cleanScrapUrl(url: string): string {
 }
 
 function parseHTML(html: string, storeCode: string, baseUrl: string): any[] {
-  // Parsing basique HTML — retourner vide si pas de parser côté serveur
-  // Le vrai parsing se fait côté client avec DOMParser
-  // Ici on utilise regex simples
   const produits: any[] = [];
-  // Maxi/Metro: chercher les prix et noms via regex
-  const priceMatches = html.matchAll(/data-testid="product-title"[^>]*>([^<]+)<\/[^>]+>[\s\S]*?data-testid="regular-price"[^>]*>([\d.,]+)/g);
-  for (const m of priceMatches) {
-    produits.push({ nom: m[1].trim(), marque: "", prixReg: m[2], prixPromo: "", fmtVal: "", fmtUnite: "", urlProd: baseUrl, imgUrl: "" });
+  const titleRe = /data-testid="product-title"[^>]*>([^<]+)<\/[^>]+>[\s\S]*?data-testid="regular-price"[^>]*>([\d.,]+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = titleRe.exec(html)) !== null) {
+    // Cherche un <img src=…> dans la fenêtre 2000 chars avant le titre
+    // (l'image apparaît avant le bloc texte dans la plupart des templates Metro/Maxi/Super C)
+    const wStart = Math.max(0, m.index - 2000);
+    const wEnd = Math.min(html.length, m.index + 200);
+    const window = html.slice(wStart, wEnd);
+    const imgMatch = window.match(/<img[^>]+(?:data-src|data-original|src)=["']([^"']+\.(?:jpe?g|png|webp|avif)[^"']*)["']/i);
+    let img = imgMatch?.[1] || "";
+    if (img && img.startsWith("//")) img = "https:" + img;
+    if (img && img.startsWith("/")) {
+      try { img = new URL(img, baseUrl).toString(); } catch { /* keep as-is */ }
+    }
+    produits.push({ nom: m[1].trim(), marque: "", prixReg: m[2], prixPromo: "", fmtVal: "", fmtUnite: "", urlProd: baseUrl, imgUrl: img });
   }
   return produits;
 }
@@ -157,9 +165,14 @@ function parseWalmart(md: string, baseUrl: string): any[] {
     if (!ml) continue;
     const mp = bloc.match(/prix actuel\s+([\d,.]+)\s*(\$|¢)/) || bloc.match(/([\d,.]+)\s*(\$|¢)/);
     if (!mp) continue;
+    // Image: syntaxe markdown ![alt](url) ou <img src="…"> en fallback
+    const mi =
+      bloc.match(/!\[[^\]]*\]\((https?:\/\/[^)]+\.(?:jpe?g|png|webp|avif)[^)]*)\)/i) ||
+      bloc.match(/<img[^>]+src=["'](https?:\/\/[^"']+\.(?:jpe?g|png|webp|avif)[^"']*)["']/i);
+    const img = mi?.[1] || "";
     let pf = parseFloat(mp[1].replace(",", ".")); if (mp[2] === "¢") pf = +(pf / 100).toFixed(2);
     const mfmt = (ml[1] + " " + bloc).match(/([\d.,]+)\s*(kg|ml|oz|lb|g|l)(?=[\s,./]|$)/i);
-    produits.push({ nom: ml[1], marque: "", prixReg: String(pf), prixPromo: "", fmtVal: mfmt?.[1] || "", fmtUnite: mfmt?.[2]?.toLowerCase() || "", urlProd: ml[2], imgUrl: "" });
+    produits.push({ nom: ml[1], marque: "", prixReg: String(pf), prixPromo: "", fmtVal: mfmt?.[1] || "", fmtUnite: mfmt?.[2]?.toLowerCase() || "", urlProd: ml[2], imgUrl: img });
   }
   return produits;
 }

@@ -14,6 +14,7 @@ export const circularService = {
           sale_price,
           unit_type,
           last_updated,
+          image_url,
           products (
             id,
             name,
@@ -45,7 +46,7 @@ export const circularService = {
           ? Math.round((1 - row.sale_price / row.regular_price) * 100)
           : undefined,
         unit: row.unit_type,
-        image_url: row.products?.image_url,
+        image_url: row.image_url || row.products?.image_url,
         product_category: row.products?.category,
         scraped_at: row.last_updated,
       }));
@@ -64,6 +65,7 @@ export const circularService = {
           regular_price,
           sale_price,
           unit_type,
+          image_url,
           products (id, name, category, image_url),
           stores (id, name, code)
         `)
@@ -80,7 +82,7 @@ export const circularService = {
         original_price: data.regular_price,
         sale_price: data.sale_price,
         unit: data.unit_type,
-        image_url: (data.products as any)?.image_url,
+        image_url: (data as any).image_url || (data.products as any)?.image_url,
         product_category: (data.products as any)?.category,
       };
     } catch {
