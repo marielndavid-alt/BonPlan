@@ -23,43 +23,61 @@ const STORE_REFERER: Record<string, string> = {
 };
 
 const STORAGE_PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/product-images/`;
+const CF_WORKER_PROXY = "https://bonplan-versionweb.marieln-david.workers.dev/api/img-proxy";
 
-// Télécharge une image depuis le CDN d'épicerie et la met dans Supabase Storage.
-// Retourne l'URL publique de notre bucket, ou l'URL d'origine si échec.
-async function rehostImage(supabase: any, originalUrl: string, storeCode: string, productId: string): Promise<string> {
-  if (!originalUrl) return originalUrl;
-  // Déjà dans notre bucket → ne rien refaire
-  if (originalUrl.startsWith(STORAGE_PUBLIC_PREFIX)) return originalUrl;
-
+// Tente de télécharger une image depuis une URL donnée.
+// Retourne {bytes, contentType} ou null si échec.
+async function tryDownload(url: string, storeCode: string): Promise<{ bytes: Uint8Array; contentType: string } | null> {
   try {
     const referer = STORE_REFERER[storeCode] || "";
-    const res = await fetch(originalUrl, {
+    const res = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Accept-Language": "fr-CA,fr;q=0.9,en;q=0.8",
         ...(referer ? { Referer: referer } : {}),
       },
     });
-    if (!res.ok) return originalUrl;
+    if (!res.ok) return null;
     const ct = res.headers.get("content-type") || "image/jpeg";
-    if (!ct.startsWith("image/")) return originalUrl;
-    const buf = new Uint8Array(await res.arrayBuffer());
-    if (!buf.length) return originalUrl;
-
-    let ext = ct.split("/")[1].split(";")[0].toLowerCase();
-    if (ext === "jpeg") ext = "jpg";
-    if (!["jpg", "png", "webp", "avif"].includes(ext)) ext = "jpg";
-
-    const path = `${storeCode}/${productId}.${ext}`;
-    const { error: upErr } = await supabase.storage
-      .from("product-images")
-      .upload(path, buf, { contentType: ct, upsert: true });
-    if (upErr) return originalUrl;
-
-    return STORAGE_PUBLIC_PREFIX + path;
+    if (!ct.startsWith("image/")) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (!bytes.length) return null;
+    return { bytes, contentType: ct };
   } catch {
-    return originalUrl;
+    return null;
   }
+}
+
+// Télécharge une image depuis le CDN d'épicerie et la met dans Supabase Storage.
+// Tente d'abord en direct, puis via le Cloudflare Worker proxy (qui contourne
+// le geo-blocking pour Metro/Loblaws/IGA depuis les datacenters Canadiens de CF).
+async function rehostImage(supabase: any, originalUrl: string, storeCode: string, productId: string): Promise<string> {
+  if (!originalUrl) return originalUrl;
+  if (originalUrl.startsWith(STORAGE_PUBLIC_PREFIX)) return originalUrl;
+
+  // 1er essai: fetch direct (fonctionne pour Walmart et certains Metro)
+  let result = await tryDownload(originalUrl, storeCode);
+
+  // Fallback: via le worker Cloudflare (qui ajoute headers + routing CA)
+  if (!result) {
+    const proxied = `${CF_WORKER_PROXY}?url=${encodeURIComponent(originalUrl)}`;
+    result = await tryDownload(proxied, storeCode);
+  }
+
+  if (!result) return originalUrl;
+
+  let ext = result.contentType.split("/")[1].split(";")[0].toLowerCase();
+  if (ext === "jpeg") ext = "jpg";
+  if (!["jpg", "png", "webp", "avif"].includes(ext)) ext = "jpg";
+
+  const path = `${storeCode}/${productId}.${ext}`;
+  const { error: upErr } = await supabase.storage
+    .from("product-images")
+    .upload(path, result.bytes, { contentType: result.contentType, upsert: true });
+  if (upErr) return originalUrl;
+
+  return STORAGE_PUBLIC_PREFIX + path;
 }
 
 const EXTRACTION_PROMPT = `Extrais tous les produits. Retourne JSON {produits:[{nom_produit,marque,prix_regulier,prix_promo,format_valeur,format_unite,url_produit,image_url}]}. prix_promo seulement si prix barré inférieur.`;
@@ -87,10 +105,13 @@ serve(async (req) => {
     const limit = parseInt(url.searchParams.get("limit") || "50", 10);
     log(`[backfill_images] Traitement de ${limit} produits…`);
 
+    // On ne traite que les rows dont l'image n'est PAS déjà dans notre Storage.
+    // Inclut: NULL, URLs CDN, URLs cassées. Exclut: déjà rehébergées.
     const { data: rows, error } = await supabase
       .from("prices")
       .select("id, image_url, product_id, stores(code), products(image_url)")
       .eq("is_on_sale", true)
+      .or(`image_url.is.null,image_url.not.ilike.${STORAGE_PUBLIC_PREFIX}%`)
       .limit(limit);
 
     if (error) {
