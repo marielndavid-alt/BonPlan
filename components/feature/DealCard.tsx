@@ -1,17 +1,19 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Image } from 'expo-image';
 import { Deal } from '@/types';
-import { colors, spacing, typography, borderRadius, shadows, storeInfo } from '@/constants/theme';
+import { colors, spacing, borderRadius, storeInfo } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useShoppingList } from '@/hooks/useShoppingList';
 
 interface DealCardProps {
   deal: Deal;
   style?: any;
+  aspectRatio?: number;
 }
 
-export function DealCard({ deal, style }: DealCardProps) {
-  const store = storeInfo[deal.store_code] || { name: deal.store_code?.toUpperCase(), color: colors.primary };
+function DealCardInner({ deal, style, aspectRatio = 4 / 3 }: DealCardProps) {
+  const store = storeInfo[deal.store_code] || { name: deal.store_code?.toUpperCase(), color: colors.textLight };
   const { addItem, items, removeItem } = useShoppingList();
 
   const discountPct = deal.discount_percentage
@@ -42,62 +44,138 @@ export function DealCard({ deal, style }: DealCardProps) {
 
   return (
     <View style={[styles.card, style]}>
-      <View style={[styles.storeBadge, { backgroundColor: store.color }]}>
-        <Text style={styles.storeBadgeText}>{store.name}</Text>
-      </View>
-      {discountPct && discountPct > 0 && (
-        <View style={styles.discountBadge}>
-          <Text style={styles.discountBadgeText}>-{discountPct}%</Text>
-        </View>
-      )}
-      <View style={styles.imageContainer}>
+      <View style={[styles.thumb, { aspectRatio }]}>
         {deal.image_url ? (
-          <Image source={{ uri: deal.image_url }} style={styles.image} resizeMode="contain" />
+          <Image
+            source={{ uri: deal.image_url }}
+            style={styles.image}
+            contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
+            recyclingKey={deal.id}
+          />
         ) : (
-          <View style={styles.imagePlaceholder}>
-            <MaterialIcons name="local-offer" size={32} color={colors.border} />
-          </View>
+          <MaterialIcons name="local-offer" size={28} color={colors.textLight} />
         )}
       </View>
-      <View style={styles.info}>
-  <Text style={styles.productName} numberOfLines={2}>{deal.product_name}</Text>
-  {deal.unit && <Text style={styles.unit}>{deal.unit}</Text>}
-  <View style={styles.priceRow}>
-    <View style={styles.prices}>
-      {deal.original_price && deal.sale_price && (
-        <Text style={styles.originalPrice}>{deal.original_price.toFixed(2)}$</Text>
-      )}
-      <Text style={styles.salePrice}>
-        {(deal.sale_price || deal.original_price || 0).toFixed(2)}$
+
+      {discountPct && discountPct > 0 ? (
+        <View style={styles.discountPill}>
+          <Text style={styles.discountText}>−{discountPct}%</Text>
+        </View>
+      ) : null}
+
+      <Text style={styles.productName} numberOfLines={2}>{deal.product_name}</Text>
+      <Text style={[styles.storeName, { color: store.color }]} numberOfLines={1}>
+        {store.name}
       </Text>
-    </View>
-    <Pressable onPress={handleToggleList} style={[styles.addButton, isInList && styles.addButtonActive]}>
-      <MaterialIcons name={isInList ? 'check' : 'add'} size={22} color={isInList ? colors.surface : colors.primary} />
-    </Pressable>
-  </View>
-</View>
+
+      <View style={styles.priceRow}>
+        <View style={styles.prices}>
+          <Text style={styles.salePrice}>
+            {(deal.sale_price || deal.original_price || 0).toFixed(2)}$
+          </Text>
+          {deal.original_price && deal.sale_price && deal.original_price > deal.sale_price && (
+            <Text style={styles.originalPrice}>{deal.original_price.toFixed(2)}$</Text>
+          )}
+        </View>
+        <Pressable
+          onPress={handleToggleList}
+          style={[styles.addButton, isInList && styles.addButtonActive]}
+        >
+          <MaterialIcons
+            name={isInList ? 'check' : 'add'}
+            size={20}
+            color={isInList ? '#fff' : colors.accent}
+          />
+        </Pressable>
+      </View>
     </View>
   );
 }
 
+export const DealCard = React.memo(DealCardInner, (prev, next) =>
+  prev.deal.id === next.deal.id &&
+  prev.aspectRatio === next.aspectRatio &&
+  prev.deal.sale_price === next.deal.sale_price
+);
+
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, marginBottom: spacing.md, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, ...shadows.sm },
-  storeBadge: { position: 'absolute', top: spacing.sm, left: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: borderRadius.sm, zIndex: 1 },
-  storeBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
-  discountBadge: { position: 'absolute', top: spacing.sm, right: spacing.sm, backgroundColor: colors.error, paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: borderRadius.sm, zIndex: 1 },
-  discountBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-  imageContainer: { width: '100%', height: 130, backgroundColor: colors.surface },
+  card: {
+    backgroundColor: colors.surface,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 8,
+  },
+  thumb: {
+    width: '100%',
+    backgroundColor: colors.background,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginBottom: 2,
+  },
   image: { width: '100%', height: '100%' },
-  imagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  info: { padding: spacing.md },
-  productName: { ...typography.bodyBold, color: colors.text, marginBottom: spacing.xs },
-  unit: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.xs },
-  priceRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: spacing.xs },
-prices: { flex: 1 },
-originalPrice: { ...typography.caption, color: colors.textLight, textDecorationLine: 'line-through' },
-salePrice: { fontSize: 20, fontWeight: '700', color: colors.primary },
-addButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-addButtonActive: { backgroundColor: '#FFD4CC', borderColor: colors.primary },
-  addButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  addButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  discountPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FDE8E5',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  discountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.accent,
+  },
+  productName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text,
+    lineHeight: 20,
+  },
+  storeName: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 'auto',
+  },
+  prices: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 9,
+    flex: 1,
+  },
+  salePrice: {
+    fontSize: 24,
+    fontWeight: '600',
+    fontFamily: 'InstrumentSerif_400Regular',
+    color: colors.accent,
+  },
+  originalPrice: {
+    fontSize: 14,
+    color: colors.textLight,
+    textDecorationLine: 'line-through',
+  },
+  addButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 2,
+    borderColor: colors.accent,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButtonActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
 });

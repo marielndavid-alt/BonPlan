@@ -1,122 +1,124 @@
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Platform, View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, typography } from '@/constants/theme';
-import { useSubscription } from '@/hooks/useSubscription';
+import { View, Text, Pressable } from 'react-native';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { colors } from '@/constants/theme';
 
-export default function TabLayout() {
+const TAB_CONFIG: Record<
+  string,
+  { title: string; icon: keyof typeof Ionicons.glyphMap; iconFilled: keyof typeof Ionicons.glyphMap; isFab?: boolean }
+> = {
+  index: { title: 'Recettes', icon: 'restaurant-outline', iconFilled: 'restaurant' },
+  circulaire: { title: 'Circulaires', icon: 'pricetag-outline', iconFilled: 'pricetag' },
+  shopping: { title: 'Liste', icon: 'cart', iconFilled: 'cart', isFab: true },
+  menu: { title: 'Menu', icon: 'calendar-outline', iconFilled: 'calendar' },
+  settings: { title: 'Réglages', icon: 'settings-outline', iconFilled: 'settings' },
+};
+
+const VISIBLE_ROUTES = ['index', 'circulaire', 'shopping', 'menu', 'settings'];
+
+function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { isSubscribed, isTrial, isAdmin } = useSubscription();
 
-  // Vérifier si l'utilisateur a accès (abonné ou en période d'essai)
-  const hasAccess = isSubscribed || isTrial;
-
-  const tabBarStyle = {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70 + insets.bottom,
-    paddingTop: 8,
-    paddingBottom: 8,
-    paddingHorizontal: 16,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 24,
-    borderTopWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  } as any;
+  const visible = state.routes.filter((r) => VISIBLE_ROUTES.includes(r.name));
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle,
-        tabBarActiveTintColor: '#D83A2E',
-        tabBarInactiveTintColor: '#8B8B8B',
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
-          marginTop: 4,
-        },
-        tabBarShowLabel: true,
+    <View
+      style={{
+        position: 'absolute',
+        bottom: 12 + insets.bottom,
+        left: 12,
+        right: 12,
+        height: 64,
+        backgroundColor: '#E8DBC8',
+        borderRadius: 32,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 6,
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Recettes',
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialIcons name="restaurant-menu" size={28} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="circulaire"
-        options={{
-          title: 'Circulaires',
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialIcons name="local-offer" size={28} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="shopping"
-        options={{
-          title: 'Liste',
-          tabBarShowLabel: true,
-          tabBarIcon: ({ color, focused }) => (
-            <View style={{
-              position: 'absolute',
-              top: -24,
-              left: '50%',
-              marginLeft: -36,
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 72,
-              height: 72,
-              borderRadius: 36,
-              backgroundColor: colors.accent,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              elevation: 8,
-            }}>
-              <MaterialIcons name="check" size={32} color="#FFFFFF" />
-            </View>
-          ),
-          tabBarLabel: () => null,
-        }}
-      />
-      <Tabs.Screen
-        name="menu"
-        options={{
-          title: 'Menu',
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialIcons name="menu-book" size={28} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Réglages',
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialIcons name="settings" size={28} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="admin"
-        options={{
-          href: null, // Masquer complètement l'onglet admin des tabs
-        }}
-      />
+      {visible.map((route) => {
+        const cfg = TAB_CONFIG[route.name];
+        if (!cfg) return null;
+
+        const realIndex = state.routes.findIndex((r) => r.key === route.key);
+        const isFocused = state.index === realIndex;
+
+        const onPress = () => {
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
+          if (!isFocused && !event.defaultPrevented) {
+            navigation.navigate(route.name as never, route.params as never);
+          }
+        };
+
+        const color = isFocused ? colors.accent : colors.textSecondary;
+
+        if (cfg.isFab) {
+          return (
+            <Pressable
+              key={route.key}
+              onPress={onPress}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <View
+                style={{
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 52,
+                  height: 52,
+                  borderRadius: 26,
+                  backgroundColor: colors.accent,
+                  transform: [{ translateY: -14 }],
+                }}
+              >
+                <Ionicons name="cart" size={26} color="#FFFFFF" />
+              </View>
+            </Pressable>
+          );
+        }
+
+        return (
+          <Pressable
+            key={route.key}
+            onPress={onPress}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', height: '100%' }}
+          >
+            <Ionicons name={isFocused ? cfg.iconFilled : cfg.icon} size={22} color={color} />
+            <Text
+              style={{
+                fontSize: 10,
+                fontWeight: '600',
+                marginTop: 4,
+                letterSpacing: 0.1,
+                color,
+              }}
+            >
+              {cfg.title}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export default function TabLayout() {
+  return (
+    <Tabs
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
+    >
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="circulaire" />
+      <Tabs.Screen name="shopping" />
+      <Tabs.Screen name="menu" />
+      <Tabs.Screen name="settings" />
+      <Tabs.Screen name="admin" options={{ href: null }} />
     </Tabs>
   );
 }

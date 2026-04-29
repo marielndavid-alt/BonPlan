@@ -1,5 +1,8 @@
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useFonts, InstrumentSerif_400Regular, InstrumentSerif_400Regular_Italic } from '@expo-google-fonts/instrument-serif';
+import { OpenSans_400Regular, OpenSans_500Medium, OpenSans_600SemiBold, OpenSans_700Bold } from '@expo-google-fonts/open-sans';
 import { revenueCatService } from '@/services/revenueCatService';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, AlertProvider, configManager, createConfig } from '@/template';
@@ -13,12 +16,26 @@ configManager.initialize(createConfig({
 }));
 
 export default function RootLayout() {
+  // Charge les fonts globalement pour que tous les écrans (Circulaires inclus,
+  // qui ne load pas ses fonts) puissent les utiliser dès le 1er rendu.
+  const [fontsLoaded] = useFonts({
+    InstrumentSerif_400Regular,
+    InstrumentSerif_400Regular_Italic,
+    OpenSans_400Regular,
+    OpenSans_500Medium,
+    OpenSans_600SemiBold,
+    OpenSans_700Bold,
+  });
+
   useEffect(() => {
     revenueCatService.initialize();
   }, []);
 
+  if (!fontsLoaded) return null;
+
   return (
     <SafeAreaProvider>
+      <StatusBar style="dark" />
       <AlertProvider>
         <AuthProvider>
           <SubscriptionProvider>

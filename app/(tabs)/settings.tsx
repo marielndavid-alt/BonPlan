@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.xs,
     fontFamily: 'InstrumentSerif_400Regular',
-    fontSize: 48,
+    fontSize: 30,
     textAlign: 'left',
   },
   subtitle: {
