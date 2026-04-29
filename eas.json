@@ -23,6 +23,16 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "REPLACE_ME_WITH_APPLE_ID_EMAIL",
+        "ascAppId": "REPLACE_ME_WITH_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "REPLACE_ME_WITH_APPLE_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./android-service-account.json",
+        "track": "internal"
+      }
+    }
   }
 }

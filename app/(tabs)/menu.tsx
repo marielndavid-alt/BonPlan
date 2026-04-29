@@ -86,7 +86,7 @@ export default function WeeklyMenuScreen() {
     setSubscriptionLoading(true);
     try {
       const { revenueCatService } = await import('@/services/revenueCatService');
-      if (user) await revenueCatService.setUserId(user.id);
+      // setUserId déjà appelé par SubscriptionContext sur user?.id change
       const { success, error } = await revenueCatService.purchasePlan(plan);
       if (success) {
         showAlert('Succès', 'Votre essai gratuit est maintenant actif !');
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.xs,
     fontFamily: 'InstrumentSerif_400Regular',
-    fontSize: 48,
+    fontSize: 30,
   },
   subtitle: {
     ...typography.body,

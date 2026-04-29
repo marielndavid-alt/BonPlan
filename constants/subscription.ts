@@ -1,3 +1,8 @@
+// IMPORTANT: must exactly match the Entitlement identifier in the RevenueCat dashboard
+// (case-sensitive, with the space). Mismatch = silent failure (paid users see paywall).
+// Same string is used server-side in supabase/functions/revenuecat-webhook/index.ts.
+export const REVENUECAT_ENTITLEMENT_ID = 'Bon Plan Pro';
+
 export const SUBSCRIPTION_TIERS = {
   monthly: {
     name: 'Mensuel',

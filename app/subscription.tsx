@@ -27,7 +27,7 @@ export default function SubscriptionScreen() {
 
   useEffect(() => {
     const loadOfferings = async () => {
-      if (user) await revenueCatService.setUserId(user.id);
+      // setUserId déjà appelé par SubscriptionContext sur user?.id change
       const offering = await revenueCatService.getOfferings();
       if (offering?.availablePackages) setPackages(offering.availablePackages);
     };

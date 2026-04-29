@@ -1,8 +1,16 @@
 import Purchases, { LOG_LEVEL, PurchasesPackage } from 'react-native-purchases';
 import { Platform } from 'react-native';
+import { REVENUECAT_ENTITLEMENT_ID } from '@/constants/subscription';
 
 const REVENUECAT_APPLE_KEY = process.env.EXPO_PUBLIC_REVENUECAT_APPLE_KEY || 'test_QKfHjtCFUqeEdOQMvkvXEtPTbgK';
-const ENTITLEMENT_ID = 'Bon Plan Pro';
+
+// Détecte les erreurs émises quand RevenueCat n'a pas été configuré (env de dev,
+// plateforme non supportée, etc.). On les avale silencieusement pour ne pas faire
+// flasher LogBox.
+function isUnconfiguredError(e: any): boolean {
+  const msg = String(e?.message || '');
+  return msg.includes('singleton') || msg.includes('configure') || msg.includes('Purchases');
+}
 
 export const revenueCatService = {
   async initialize() {
@@ -17,7 +25,7 @@ export const revenueCatService = {
       const offerings = await Purchases.getOfferings();
       return offerings.current;
     } catch (e) {
-      console.error('[RevenueCat] getOfferings:', e);
+      if (!isUnconfiguredError(e)) console.warn('[RevenueCat] getOfferings:', e);
       return null;
     }
   },
@@ -27,7 +35,7 @@ export const revenueCatService = {
       const { customerInfo } = await Purchases.purchasePackage(pkg);
       return { success: true, customerInfo };
     } catch (e: any) {
-      if (!e.userCancelled) console.error('[RevenueCat] purchase:', e);
+      if (!e.userCancelled && !isUnconfiguredError(e)) console.warn('[RevenueCat] purchase:', e);
       return { success: false, error: e };
     }
   },
@@ -47,14 +55,10 @@ export const revenueCatService = {
       }) || current.availablePackages[0];
       return await this.purchasePackage(pkg);
     } catch (e: any) {
-      // RevenueCat pas configuré (ex: env de dev sans clé, ou plateforme non supportée)
-      // → on affiche le même message "noOfferings" pour rester cohérent côté UX,
-      //   sans logger en console.error (sinon LogBox dev affiche un overlay rouge)
-      const msg = String(e?.message || '');
-      if (msg.includes('singleton') || msg.includes('configure') || msg.includes('Purchases')) {
+      if (isUnconfiguredError(e)) {
         return { success: false, error: { message: 'Aucun forfait disponible pour le moment. Réessayez plus tard.', noOfferings: true } };
       }
-      console.error('[RevenueCat] purchasePlan:', e);
+      console.warn('[RevenueCat] purchasePlan:', e);
       return { success: false, error: e };
     }
   },
@@ -64,7 +68,7 @@ export const revenueCatService = {
       const customerInfo = await Purchases.restorePurchases();
       return customerInfo;
     } catch (e) {
-      console.error('[RevenueCat] restore:', e);
+      if (!isUnconfiguredError(e)) console.warn('[RevenueCat] restore:', e);
       return null;
     }
   },
@@ -72,8 +76,8 @@ export const revenueCatService = {
   async checkSubscription() {
     try {
       const customerInfo = await Purchases.getCustomerInfo();
-      return customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined;
-    } catch (e) {
+      return customerInfo.entitlements.active[REVENUECAT_ENTITLEMENT_ID] !== undefined;
+    } catch {
       return false;
     }
   },
@@ -82,11 +86,17 @@ export const revenueCatService = {
     try {
       await Purchases.logIn(userId);
     } catch (e: any) {
-      // Silent si Purchases n'est pas configuré (env de dev / plateforme sans config)
-      const msg = String(e?.message || '');
-      if (!msg.includes('singleton') && !msg.includes('configure')) {
-        console.error('[RevenueCat] setUserId:', e);
-      }
+      if (!isUnconfiguredError(e)) console.warn('[RevenueCat] setUserId:', e);
+    }
+  },
+
+  // À appeler au signout pour éviter que le user suivant hérite des entitlements
+  // du précédent.
+  async logOut() {
+    try {
+      await Purchases.logOut();
+    } catch (e: any) {
+      if (!isUnconfiguredError(e)) console.warn('[RevenueCat] logOut:', e);
     }
   },
 };

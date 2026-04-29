@@ -290,7 +290,7 @@ export default function ShoppingScreen() {
     setSubscriptionLoading(true);
     try {
       const { revenueCatService } = await import('@/services/revenueCatService');
-      if (user) await revenueCatService.setUserId(user.id);
+      // setUserId déjà appelé par SubscriptionContext sur user?.id change
       const { success, error } = await revenueCatService.purchasePlan(plan);
       if (success) {
         showAlert('Succès', 'Votre essai gratuit est maintenant actif !');
@@ -590,7 +590,7 @@ export default function ShoppingScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.darkBeige, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg, borderBottomLeftRadius: borderRadius.xl, borderBottomRightRadius: borderRadius.xl, zIndex: 1 },
-  title: { ...typography.h1, color: colors.text, marginBottom: spacing.xs, fontFamily: 'InstrumentSerif_400Regular', fontSize: 48 },
+  title: { ...typography.h1, color: colors.text, marginBottom: spacing.xs, fontFamily: 'InstrumentSerif_400Regular', fontSize: 30 },
   subtitle: { ...typography.body, color: colors.textSecondary },
   buttonsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginTop: spacing.md },
   pantryButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: borderRadius.full, borderWidth: 2, borderColor: colors.primary, backgroundColor: 'transparent' },

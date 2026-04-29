@@ -230,7 +230,7 @@ export default function RecipesHomeScreen() {
     setSubscriptionLoading(true);
     try {
       const { revenueCatService } = await import('@/services/revenueCatService');
-      if (user) await revenueCatService.setUserId(user.id);
+      // setUserId déjà appelé par SubscriptionContext sur user?.id change
       const { success, error } = await revenueCatService.purchasePlan(plan);
       if (success) {
         showAlert('Succès', 'Votre essai gratuit est maintenant actif !');
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   hero: { backgroundColor: colors.darkBeige, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg, borderBottomLeftRadius: borderRadius.xl, borderBottomRightRadius: borderRadius.xl },
   greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
-  greeting: { ...typography.h1, color: colors.text, fontFamily: 'InstrumentSerif_400Regular', fontSize: 48 },
+  greeting: { ...typography.h1, color: colors.text, fontFamily: 'InstrumentSerif_400Regular', fontSize: 30 },
   subtitle: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.sm },
   tabBar: { flexDirection: 'row', paddingTop: spacing.xs, gap: spacing.sm, alignItems: 'center' },
   tab: { flex: 1, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: borderRadius.full, backgroundColor: 'transparent', alignItems: 'center', borderWidth: 2, borderColor: colors.primary },

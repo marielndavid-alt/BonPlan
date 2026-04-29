@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/template';
 import { revenueCatService } from '@/services/revenueCatService';
+import { REVENUECAT_ENTITLEMENT_ID } from '@/constants/subscription';
 
 interface SubscriptionContextType {
   isSubscribed: boolean;
@@ -36,11 +37,20 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     subscriptionStatus: null as any,
   });
 
+  const previousUserIdRef = useRef<string | null>(null);
+
   const fetchSubscription = async () => {
     if (!user) {
+      // L'utilisateur s'est déconnecté → reset RevenueCat pour éviter que le prochain
+      // login hérite des entitlements du précédent.
+      if (previousUserIdRef.current) {
+        revenueCatService.logOut();
+        previousUserIdRef.current = null;
+      }
       setState({ isSubscribed: false, isTrial: false, isAdmin: false, loading: false, status: null, subscriptionStatus: null });
       return;
     }
+    previousUserIdRef.current = user.id;
 
     setState(s => ({ ...s, loading: true }));
 
@@ -64,7 +74,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       try {
         const Purchases = require('react-native-purchases').default;
         const customerInfo = await Purchases.getCustomerInfo();
-        const entitlement = customerInfo.entitlements.active['Bon Plan Pro'];
+        const entitlement = customerInfo.entitlements.active[REVENUECAT_ENTITLEMENT_ID];
         if (entitlement) {
           isSubscribed = true;
           isTrial = entitlement.periodType === 'TRIAL';
