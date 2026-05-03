@@ -9,6 +9,7 @@ import { colors, spacing, typography, borderRadius, shadows } from '@/constants/
 import { useAuth, useAlert } from '@/template';
 import { useSubscription } from '@/hooks/useSubscription';
 import { revenueCatService } from '@/services/revenueCatService';
+import { mapSubscriptionError } from '@/services/subscriptionErrorMapper';
 import type { PurchasesPackage } from 'react-native-purchases';
 
 export default function SubscriptionScreen() {
@@ -42,19 +43,7 @@ export default function SubscriptionScreen() {
         await refreshSubscription();
         showAlert('Succès', 'Votre abonnement est maintenant actif !');
       } else if (error && !error.userCancelled) {
-        // Message plus précis selon le type d'erreur RevenueCat
-        const code = error?.code || error?.userInfo?.readable_error_code;
-        let msg = "Impossible de compléter l'achat. Veuillez réessayer.";
-        if (code === 'PRODUCT_NOT_AVAILABLE_FOR_PURCHASE' || code === 'PURCHASE_NOT_ALLOWED_ERROR') {
-          msg = "Ce forfait n'est pas disponible pour le moment. Réessayez plus tard.";
-        } else if (code === 'NETWORK_ERROR') {
-          msg = "Problème de connexion. Vérifiez votre internet et réessayez.";
-        } else if (code === 'STORE_PROBLEM_ERROR' || code === 'PAYMENT_PENDING_ERROR') {
-          msg = "Problème avec l'App Store. Réessayez dans quelques minutes.";
-        } else if (error?.message) {
-          msg = error.message;
-        }
-        showAlert('Erreur', msg);
+        showAlert('Erreur', mapSubscriptionError(error));
       }
     } finally {
       setProcessingPlan(null);

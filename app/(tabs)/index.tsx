@@ -15,6 +15,7 @@ import { useAuth, getSupabaseClient } from '@/template';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useWeeklyMenu } from '@/hooks/useWeeklyMenu';
 import { useAlert } from '@/template';
+import { mapSubscriptionError } from '@/services/subscriptionErrorMapper';
 
 export default function RecipesHomeScreen() {
   const insets = useSafeAreaInsets();
@@ -235,12 +236,7 @@ export default function RecipesHomeScreen() {
       if (success) {
         showAlert('Succès', 'Votre essai gratuit est maintenant actif !');
       } else if (error && !error.userCancelled) {
-        showAlert(
-          'Erreur',
-          error?.noOfferings
-            ? 'Aucun forfait disponible pour le moment. Réessayez plus tard.'
-            : (error?.message || "Impossible de démarrer l'essai. Veuillez réessayer.")
-        );
+        showAlert('Erreur', mapSubscriptionError(error));
       }
     } finally {
       setSubscriptionLoading(false);
@@ -275,8 +271,8 @@ export default function RecipesHomeScreen() {
               <Text style={styles.pricingPeriod}>Mensuel</Text>
               <Text style={styles.pricingAmount}>5$ /mois</Text>
               <Text style={styles.pricingTrial}>7 jours gratuits!</Text>
-              <Pressable style={styles.pricingButton} onPress={() => handleSubscription('monthly')} disabled={subscriptionLoading}>
-                {subscriptionLoading ? <ActivityIndicator size="small" color={colors.text} /> : <Text style={styles.pricingButtonText}>Commencer l'essai gratuit</Text>}
+              <Pressable style={styles.pricingButton} onPress={() => router.push('/subscription')}>
+                <Text style={styles.pricingButtonText}>Commencer l'essai gratuit</Text>
               </Pressable>
             </View>
             <View style={[styles.pricingCard, styles.pricingCardPopular]}>
@@ -284,8 +280,8 @@ export default function RecipesHomeScreen() {
               <Text style={styles.pricingPeriod}>Annuel</Text>
               <Text style={styles.pricingAmount}>50$ /an</Text>
               <Text style={styles.pricingTrial}>7 jours gratuits!</Text>
-              <Pressable style={styles.pricingButton} onPress={() => handleSubscription('yearly')} disabled={subscriptionLoading}>
-                {subscriptionLoading ? <ActivityIndicator size="small" color={colors.text} /> : <Text style={styles.pricingButtonText}>Commencer l'essai gratuit</Text>}
+              <Pressable style={styles.pricingButton} onPress={() => router.push('/subscription')}>
+                <Text style={styles.pricingButtonText}>Commencer l'essai gratuit</Text>
               </Pressable>
             </View>
             <View style={styles.freeAccessInfo}>
